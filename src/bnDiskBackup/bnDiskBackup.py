@@ -10,9 +10,11 @@ import datetime
 class bnDiskBackup(object):
 
     def __init__(self, json_file, backup_path):
+        logging.info('## Welcome to the Backup System Management ##')
         self.host_list = []
         self.json_file = json_file
         self.backup_path = backup_path 
+        logging.info('## The backup directory is %s', self.backup_path)
         self.logs_path = os.path.join( self.backup_path, 'logs')
         if (not os.path.isdir(self.logs_path)):
             os.makedirs(self.logs_path)

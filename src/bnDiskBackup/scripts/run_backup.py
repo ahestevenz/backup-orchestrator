@@ -5,6 +5,8 @@ from builtins import input
 import argparse
 import cProfile as profile
 import logging
+import datetime
+import os
 
 # local 
 from bnDiskBackup import bnDiskBackup
@@ -24,8 +26,14 @@ def _main(args):
     disksync = bnDiskBackup.bnDiskBackup(args['json_file'], args['backup_directory'])    
     disksync.rsync_modules()
 
-    return 0
+    date_format="%Y%m%d-%H%M%S"
+    date_path = os.path.join (args['backup_directory'],'backup_date_' +
+                                         datetime.datetime.now().strftime(date_format) + '.log')
+    date_file= open( date_path, "w+")
+    date_file.close
 
+    return 0
+    
 
 def main():
     """CLI for upload the encripted files"""
@@ -33,7 +41,7 @@ def main():
     # Module specific
     argparser = argparse.ArgumentParser(description='Backup Management Module.')
     argparser.add_argument('-j', '--json_file', help='JSON file with backup set points (default: "%(default)s")', required=False,
-                          default='/Users/ahestevenz/.userfiles/conf/backup.json')
+                          default='/Users/ahestevenz/.userfiles/conf/backup.example.json')
     argparser.add_argument('-d', '--backup_directory', help='Destination directory (default: "%(default)s")', required=False,
                           default='/Volumes/Datensicherung/Datensicherung/')
 
