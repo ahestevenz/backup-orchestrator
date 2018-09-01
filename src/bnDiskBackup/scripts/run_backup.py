@@ -35,7 +35,7 @@ def main():
     argparser.add_argument('-j', '--json_file', help='JSON file with backup set points (default: "%(default)s")', required=False,
                           default='/Users/ahestevenz/.userfiles/conf/backup.json')
     argparser.add_argument('-d', '--backup_directory', help='Destination directory (default: "%(default)s")', required=False,
-                          default='/Volumes/Datensicherung/Datensicherung_new/')
+                          default='/Volumes/Datensicherung/Datensicherung/')
 
     # Default Args
     argparser.add_argument('-v', '--verbose', help='Increase logging output  (default: INFO)'
