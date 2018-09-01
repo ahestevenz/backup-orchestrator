@@ -3,11 +3,8 @@ from __future__ import print_function
 
 from builtins import input
 import argparse
-import logging
 import cProfile as profile
-import getpass
-import os
-import datetime
+import logging
 
 # local 
 from bnDiskBackup import bnDiskBackup
@@ -24,8 +21,9 @@ def _main(args):
     args: namespace object as returned by ArgumentParser.parse_args()
     """
 
-    disksync = bnDiskBackup.bnDiskBackup('/Users/ahestevenz/.userfiles/conf/backup.json')    
+    disksync = bnDiskBackup.bnDiskBackup(args['json_file'], args['backup_directory'])    
     disksync.rsync_modules()
+
     return 0
 
 
@@ -33,19 +31,11 @@ def main():
     """CLI for upload the encripted files"""
 
     # Module specific
-    argparser = argparse.ArgumentParser(description='Upload images to the server.'
-    'The user may or may not have RSA public key for the remote-host\n'
-    'i.e: zoom-encryption-upload-dir -s . -d /mnt/shared/ZoomBarley/database-pixma/ -e .png.enc -z zcloud1 -u za', formatter_class=argparse.RawTextHelpFormatter)
-    argparser.add_argument('-s', '--src_dir', help='Source Directory (default: "%(default)s")', required=False,
-                          default="")
-    argparser.add_argument('-d', '--dst_dir', help='Dest Directory (default: "%(default)s")', required=False,
-                          default="")
-    argparser.add_argument('-z', '--server', help='Upload to server, nullstring for local copy (default: "%(default)s")', required=False,
-                          default="")
-    argparser.add_argument('-e', '--extension', help='Upload only files with this extension (default: "%(default)s")', required=False,
-                          default="")
-    argparser.add_argument('-u', '--user', help='Connect to server using this username, nullstring for same local username (default: "%(default)s")', required=False,
-                          default="")
+    argparser = argparse.ArgumentParser(description='Backup Management Module.')
+    argparser.add_argument('-j', '--json_file', help='JSON file with backup set points (default: "%(default)s")', required=False,
+                          default='/Users/ahestevenz/.userfiles/conf/backup.json')
+    argparser.add_argument('-d', '--backup_directory', help='Destination directory (default: "%(default)s")', required=False,
+                          default='/Volumes/Datensicherung/Datensicherung_new/')
 
     # Default Args
     argparser.add_argument('-v', '--verbose', help='Increase logging output  (default: INFO)'
