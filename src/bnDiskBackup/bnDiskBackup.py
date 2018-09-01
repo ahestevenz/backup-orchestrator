@@ -1,71 +1,60 @@
 from __future__ import print_function
-# from builtins import input
-# from builtins import range
-# from builtins import object
-# import struct
-# import hashlib
-# from random import choice
-# from string import ascii_lowercase
 import os
 import json
 import shutil
 import logging
 import warnings
 import subprocess
+import datetime
 
 class bnDiskBackup(object):
 
-    def __init__(self, json_file):
+    def __init__(self, json_file, backup_path):
+        self.host_list = []
         self.json_file = json_file
+        self.backup_path = backup_path 
+        self.logs_path = os.path.join( self.backup_path, 'logs')
+        if (not os.path.isdir(self.logs_path)):
+            os.makedirs(self.logs_path)
         self.load_info()
-        
-    def rsync_modules(self):
-        cmd = 'ping pegasus'        
-        for (k, v) in self.json_info.items():
-            print('I am starting backup of', k)
-            logging.info('I am starting backup of %s', k)
-            cmd = 'ping pegasus'
-            ping = subprocess.run(cmd, shell=True, universal_newlines=True, check=True)
-            print(ping.stdout)
 
-            
-            # print(k)
-            # print(v['host'])
-            # print(v['user'])
+    def rsync_conf(self, user):
+        for host in self.host_list:
+            logging.info('## Backup of the configuration of %s', host)
+            path_to_host =  os.path.join(self.backup_path, '%s-%s'%(host, user))
+            if (not os.path.isdir(path_to_host)):
+                os.makedirs(path_to_host)
+            cmd ='rsync --archive --verbose --human-readable --itemize-changes --progress \
+            --delete %s@%s:/etc/hosts  %s/hosts 2>&1 > %s/rsync-output-conf-%s.txt '%(user, host, path_to_host, self.logs_path, user)
+            subprocess.run(cmd, shell=True, universal_newlines=True, check=True)
+            cmd ='rsync --archive --verbose --human-readable --itemize-changes --progress \
+            --delete %s@%s:/etc/motd  %s/motd 2>&1 > %s/rsync-output-conf-motd-%s.txt'%(user, host, path_to_host, self.logs_path, user)
+            subprocess.run(cmd, shell=True, universal_newlines=True, check=True)
+            path_to_home_conf =  os.path.join(path_to_host, user)
+            if (not os.path.isdir(path_to_home_conf)):
+                os.makedirs(path_to_home_conf)
+            cmd ='rsync --archive --verbose --human-readable --itemize-changes --progress \
+            --delete %s@%s:/Users/%s/.[^.]*  %s 2>&1 > %s/rsync-output-conf-%s.txt'%(user, host, user, path_to_home_conf, self.logs_path, user)
+            subprocess.run(cmd, shell=True, universal_newlines=True, check=True)
+
+        
+    def rsync_modules(self, bkp_conf = True):      
+        for (k, v) in self.json_info.items():
+            logging.info('## I am starting backup of %s', k)
+            user = v['user']
+            host = v['host']
+            self.host_list.append(host)
+            src_path = v['src_path']
+            logging.info('Backup for the user:host:  %s:%s ', user, host)
+            logging.info('In the following source path %s', src_path)
+            cmd = 'rsync --archive --verbose --human-readable --itemize-changes --progress \
+            --delete %s@%s:%s %s/%s 2>&1 > %s/rsync-output-%s.txt'% (user, host, src_path, self.backup_path, k, self.logs_path, k)
+            subprocess.run(cmd, shell=True, universal_newlines=True, check=True)
+            logging.info("## The backup of %s is done!", k)
+        self.host_list = list(set(self.host_list))
+        if (bkp_conf):
+            self.rsync_conf(user)   
 
     def load_info(self):
         with open(self.json_file) as f:
-            self.json_info = json.load(f)            
-    
-    def query_yes_no(self, question, default_answer=None):
-        '''Ask a yes/no question via raw_input() and return their answer.
-        "question" is a string that is presented to the user.
-        "default_answer" is the presumed answer if the user just hits <Enter>.
-            It must be "yes", "no" or None (meaning
-            an answer is required of the user).
-
-        The "answer" return value is True for "yes" or False for "no".
-        '''
-        valid = {'yes': True, 'y': True, 'ye': True,
-                'no': False, 'n': False}
-        if default_answer is None:
-            prompt = ' [y/n] '
-        elif default_answer == 'yes':
-            prompt = ' [Y/n] '
-        elif default_answer == 'no':
-            prompt = ' [y/N] '
-        else:
-            raise ValueError('invalid default answer: "%s"' % default_answer)
-
-        while True:
-            # sys.stdout.write(question + prompt)
-            print((question + prompt), end=' ')
-            choice = input().lower()
-            if default_answer is not None and choice == '':
-                return valid[default_answer]
-            elif choice in valid:
-                return valid[choice]
-            else:
-                print('Please respond with "yes" or "no" (or "y" or "n").', end=' ')
-    
-    
+            self.json_info = json.load(f) 
