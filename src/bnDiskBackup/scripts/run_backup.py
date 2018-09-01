@@ -27,9 +27,10 @@ def _main(args):
     disksync.rsync_modules()
 
     date_format="%Y%m%d-%H%M%S"
-    date_path = os.path.join (args['backup_directory'],'backup_date_' +
-                                         datetime.datetime.now().strftime(date_format) + '.log')
-    date_file= open( date_path, "w+")
+    date_path = os.path.join (args['backup_directory'],'backup_date.log')
+    date_info = datetime.datetime.now().strftime(date_format)
+    date_file = open( date_path, "w+")
+    date_file.write(date_info)
     date_file.close
 
     return 0
@@ -41,7 +42,7 @@ def main():
     # Module specific
     argparser = argparse.ArgumentParser(description='Backup Management Module.')
     argparser.add_argument('-j', '--json_file', help='JSON file with backup set points (default: "%(default)s")', required=False,
-                          default='/Users/ahestevenz/.userfiles/conf/backup.example.json')
+                          default='/Users/ahestevenz/.userfiles/conf/backup.json')
     argparser.add_argument('-d', '--backup_directory', help='Destination directory (default: "%(default)s")', required=False,
                           default='/Volumes/Datensicherung/Datensicherung/')
 

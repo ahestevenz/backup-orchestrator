@@ -27,7 +27,7 @@ class bnDiskBackup(object):
             if (not os.path.isdir(path_to_host)):
                 os.makedirs(path_to_host)
             cmd ='rsync --archive --verbose --human-readable --itemize-changes --progress \
-            --delete %s@%s:/etc/hosts  %s/hosts 2>&1 > %s/rsync-output-conf-%s.txt '%(user, host, path_to_host, self.logs_path, user)
+            --delete %s@%s:/etc/hosts  %s/hosts 2>&1 > %s/rsync-output-conf-hosts-%s.txt '%(user, host, path_to_host, self.logs_path, user)
             subprocess.run(cmd, shell=True, universal_newlines=True, check=True)
             cmd ='rsync --archive --verbose --human-readable --itemize-changes --progress \
             --delete %s@%s:/etc/motd  %s/motd 2>&1 > %s/rsync-output-conf-motd-%s.txt'%(user, host, path_to_host, self.logs_path, user)
@@ -35,7 +35,7 @@ class bnDiskBackup(object):
             path_to_home_conf =  os.path.join(path_to_host, user)
             if (not os.path.isdir(path_to_home_conf)):
                 os.makedirs(path_to_home_conf)
-            cmd ='rsync --archive --verbose --human-readable --itemize-changes --progress \
+            cmd ='rsync --archive --verbose --exclude ".Trash" --human-readable --itemize-changes --progress \
             --delete %s@%s:/Users/%s/.[^.]*  %s 2>&1 > %s/rsync-output-conf-%s.txt'%(user, host, user, path_to_home_conf, self.logs_path, user)
             subprocess.run(cmd, shell=True, universal_newlines=True, check=True)
 
