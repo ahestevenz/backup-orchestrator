@@ -5,7 +5,7 @@ def readme():
     with open('README.rst') as f:
         return f.read()
 
-setup(  name='bnDiskBackup',
+setup(  name='bnBackupModule',
         version='0.1.0b0',
         description='Backup based on RSYNC command',
         packages=find_packages('src'),
@@ -27,7 +27,7 @@ setup(  name='bnDiskBackup',
         test_suite='nose.collector',
         tests_require=['nose'],
         entry_points = {
-            'console_scripts': ['bn-run-backup=bnDiskBackup.scripts.run_backup:main',
+            'console_scripts': ['bn-run-backup=bnBackupModule.scripts.run_backup:main',
             ],
         },
         include_package_data=True,

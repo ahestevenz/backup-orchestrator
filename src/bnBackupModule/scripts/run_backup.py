@@ -9,7 +9,7 @@ import datetime
 import os
 
 # local 
-from bnDiskBackup import bnDiskBackup
+from bnBackupModule import bnBackupModule
 
 __author__ = [ "Ariel Hernandez <ariel.h.estevenz@ieee.org>" ]
 __copyright__ = "Copyright 2018 ZoomAgri. All rights reserved."
@@ -23,7 +23,7 @@ def _main(args):
     args: namespace object as returned by ArgumentParser.parse_args()
     """
 
-    disksync = bnDiskBackup.bnDiskBackup(args['json_file'], args['backup_directory'])    
+    disksync = bnBackupModule.bnBackupModule(args['json_file'], args['backup_directory'])    
     disksync.rsync_modules()
 
     date_format="%Y%m%d-%H%M%S"
@@ -40,7 +40,7 @@ def main():
     """CLI for upload the encripted files"""
 
     # Module specific
-    argparser = argparse.ArgumentParser(description='Backup Management Module.')
+    argparser = argparse.ArgumentParser(description='Welcome to the Backup Module Management')
     argparser.add_argument('-j', '--json_file', help='JSON file with backup set points (default: "%(default)s")', required=False,
                           default='/Users/ahestevenz/.userfiles/conf/backup.json')
     argparser.add_argument('-d', '--backup_directory', help='Destination directory (default: "%(default)s")', required=False,
