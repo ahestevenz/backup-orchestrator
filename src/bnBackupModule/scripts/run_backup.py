@@ -12,7 +12,7 @@ import os
 from bnBackupModule import bnBackupModule
 
 __author__ = [ "Ariel Hernandez <ariel.h.estevenz@ieee.org>" ]
-__copyright__ = "Copyright 2018 ZoomAgri. All rights reserved."
+__copyright__ = "Copyright 2018 Bleiben. All rights reserved."
 __license__ = """Proprietary"""
 
 
