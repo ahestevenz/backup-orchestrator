@@ -18,13 +18,13 @@ This JSON file specifies the modules which will be syncronized, and it must be w
         "src_path"  : "/Users/ahestevenz/dir1",
         "user"  : "ahestevenz",
         "host"  : "galactica",
-        "os" : "mac"
+        "os" : "darwin"
         },
         "dir2-ahe" : {
         "src_path"  : "/Users/ahestevenz/dir2",   
         "user"  : "ahestevenz",
         "host"  : "galactica",
-        "os" : "mac"
+        "os" : "darwin"
         },
         "dir3-ahe" : {
         "src_path"  : "/home/ahestevenz/dir3", 
