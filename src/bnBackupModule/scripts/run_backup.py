@@ -6,6 +6,7 @@ import argparse
 import cProfile as profile
 import logging
 import datetime
+import shutil
 import os
 
 # local 
@@ -25,6 +26,7 @@ def _main(args):
 
     disksync = bnBackupModule.bnBackupModule(args['json_file'], args['backup_directory'])    
     disksync.rsync_modules()
+    shutil.copy(args['json_file'],os.path.join (args['backup_directory'],'backup.json'))
 
     date_format="%Y%m%d-%H%M%S"
     date_path = os.path.join (args['backup_directory'],'backup_date.log')

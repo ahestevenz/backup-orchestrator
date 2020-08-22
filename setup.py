@@ -22,7 +22,7 @@ setup(  name='bnBackupModule',
         author_email='ariel.h.estevenz@ieee.org',
         license='Proprietary',
         install_requires=[
-            'numpy', 'pexpect'
+            'numpy', 'pexpect', 'shutil'
         ],
         test_suite='nose.collector',
         tests_require=['nose'],
