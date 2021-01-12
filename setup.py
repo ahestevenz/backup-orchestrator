@@ -6,7 +6,7 @@ def readme():
         return f.read()
 
 setup(  name='bnBackupModule',
-        version='0.1.0b0',
+        version='0.1.0b1',
         description='Backup based on RSYNC command',
         packages=find_packages('src'),
         package_dir={'': 'src'},
@@ -22,7 +22,7 @@ setup(  name='bnBackupModule',
         author_email='ariel.h.estevenz@ieee.org',
         license='Proprietary',
         install_requires=[
-            'numpy', 'pexpect'
+            'numpy', 'pexpect', 'shutil'
         ],
         test_suite='nose.collector',
         tests_require=['nose'],
