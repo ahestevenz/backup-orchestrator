@@ -5,15 +5,14 @@ from builtins import input
 import argparse
 import cProfile as profile
 import logging
-import datetime
 import shutil
 import os
 
 # local 
 from bnBackupModule import bnBackupModule
 
-__author__ = [ "Ariel Hernandez <ariel.h.estevenz@ieee.org>" ]
-__copyright__ = "Copyright 2018 Bleiben. All rights reserved."
+__author__ = [ "Ariel Hernandez <ahestevenz@bleiben.ar>" ]
+__copyright__ = "Copyright 2020 Bleiben. All rights reserved."
 __license__ = """Proprietary"""
 
 
@@ -24,17 +23,9 @@ def _main(args):
     args: namespace object as returned by ArgumentParser.parse_args()
     """
 
-    disksync = bnBackupModule.bnBackupModule(args['json_file'], args['backup_directory'])    
-    disksync.rsync_modules()
-    shutil.copy(args['json_file'],os.path.join (args['backup_directory'],'backup.json'))
-
-    date_format="%Y%m%d-%H%M%S"
-    date_path = os.path.join (args['backup_directory'],'backup_date.log')
-    date_info = datetime.datetime.now().strftime(date_format)
-    date_file = open( date_path, "w+")
-    date_file.write(date_info)
-    date_file.close
-
+    disksync = bnBackupModule.bnBackupModule(args['json_file'], args['backup_directory'])  
+    disksync.rsync_modules(bkp_conf = False)
+    
     return 0
     
 
