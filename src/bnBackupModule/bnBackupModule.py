@@ -1,93 +1,133 @@
 from __future__ import print_function
+from typing import Tuple, Dict, List
 import os
 import json
 import shutil
-import logging
-import warnings
+from loguru import logger as logging
 import subprocess
 import datetime
 import numpy as np
+import shlex
+from pathlib import Path
 
 class bnBackupModule(object):
 
-    def __init__(self, json_file, backup_directory_path):
+    def __init__(self, json_file:str, backup_directory_path:str):
         logging.info('## Welcome to the Backup System Management ##')
+        logging.info(f'## The backup directory is {backup_directory_path}')
         self.host_list = []
         self.json_file = {}
         self.backup_dirs = {}
         for state in ['current', 'previous']:
-            self.backup_dirs[state] = os.path.join(backup_directory_path, state)
-        self.json_file['current'] = json_file
-        self.json_file['previous'] = os.path.join(self.backup_dirs['current'], os.path.basename(json_file))
-        logging.info('## The backup directory is %s', backup_directory_path)
-        self.logs_path = os.path.join(backup_directory_path, 'logs')
-        if (not os.path.isdir(self.logs_path)):
-            os.makedirs(self.logs_path)
+            # self.backup_dirs[state] = os.path.join(backup_directory_path, state)
+            self.backup_dirs[state] = Path(backup_directory_path)/Path(state)
+        self.json_file['current'] = Path(json_file)
+        self.json_file['previous'] = self.backup_dirs['current']/self.json_file['current'].name
+        self.logs_path = Path(backup_directory_path)/Path('logs')
+        self.logs_path.mkdir(parents=True, exist_ok=True)
         self.load_info()
 
-    def rsync_conf(self):
-        for computer in self.host_list:
-            host = computer[0]
-            home = "home" if computer[1]=="linux" else "Users"
-            user = computer[2]
-            logging.info('## Backup of the configuration of %s', host)
-            path_to_host =  os.path.join(self.backup_dirs['current'], '%s-%s'%(host, user))
-            if (not os.path.isdir(path_to_host)):
-                os.makedirs(path_to_host)
-            cmd ='rsync --archive --verbose --human-readable --itemize-changes --progress \
-            --delete %s@%s:/etc/hosts  %s/hosts 2>&1 > %s/rsync-output-conf-hosts-%s.txt '%(user, host, path_to_host, self.logs_path, user)
-            subprocess.run(cmd, shell=True, universal_newlines=True, check=True)
-            cmd ='rsync --archive --verbose --human-readable --itemize-changes --progress \
-            --delete %s@%s:/etc/motd  %s/motd 2>&1 > %s/rsync-output-conf-motd-%s.txt'%(user, host, path_to_host, self.logs_path, user)
-            subprocess.run(cmd, shell=True, universal_newlines=True, check=True)
-            path_to_home_conf =  os.path.join(path_to_host, user)
-            if (not os.path.isdir(path_to_home_conf)):
-                os.makedirs(path_to_home_conf)
-            cmd ='rsync --archive --verbose --exclude ".Trash" --exclude ".cache" --human-readable --itemize-changes --progress \
-            --delete %s@%s:/%s/%s/.[^.]*  %s 2>&1 > %s/rsync-output-conf-%s.txt'%(user, host, home, user, path_to_home_conf, self.logs_path, user)
-            subprocess.run(cmd, shell=True, universal_newlines=True, check=True)
+    def get_command(self, 
+                    src:str, 
+                    dst:str,
+                    log:str,
+                    extra_args:str = ""):
+        cmd =f"rsync --archive --verbose --human-readable --itemize-changes --info=progress2 \
+                --delete {extra_args} {src} {dst} 2>&1 > {log}"
+        return cmd
 
-        
-    def rsync_modules(self, bkp_conf = True):
+    def run_command(self, command):
+        process = subprocess.Popen(shlex.split(command), stdout=subprocess.PIPE)
+        while True:
+            output = process.stdout.readline()
+            if output == '' and process.poll() is not None:
+                break
+            if output:
+                print(output.strip())
+        rc = process.poll()
+        return rc
+
+    def run_subprocess(self, cmd:str):
+        subprocess.run(cmd, shell=True, universal_newlines=True, check=True)
+        logging.debug(f'#### Running {cmd}')
+
+    def rsync_conf(self):
+        self.host_list = np.unique(self.host_list, axis=0)
+        for computer in self.host_list:
+            host, user = computer[0], computer[2]
+            home = "home" if computer[1] == "linux" else "Users"
+            logging.info(f'## Backup of the configuration of {user}@{host}')
+            # path_to_host =  os.path.join(self.backup_dirs['current'], f'{user}-{host}') 
+            # if (not os.path.isdir(path_to_host)):
+            #     os.makedirs(path_to_host)
+            path_to_host = self.backup_dirs['current']/Path(f'{user}-{host}')
+            path_to_host.mkdir(parents=False, exist_ok=True)
+            for file in ['motd', 'hosts']:
+                cmd = self.get_command(f'{user}@{host}:/etc/{file}',
+                                       f'{path_to_host}/hosts',
+                                       f'{self.logs_path}/rsync-output-conf-hosts-{user}.txt')
+                # cmd =f"rsync --archive --verbose --human-readable --itemize-changes --progress \
+                # --delete {user}@{host}:/etc/{file}  {path_to_host}/hosts 2>&1 > {self.logs_path}/rsync-output-conf-hosts-{user}.txt"
+                self.run_command(cmd)
+            # path_to_home_conf =  os.path.join(path_to_host, user)
+            # if (not os.path.isdir(path_to_home_conf)):
+            #     os.makedirs(path_to_home_conf)
+            path_to_home_conf = path_to_host/Path(user)
+            path_to_home_conf.mkdir(parents=False, exist_ok=True)
+            cmd = self.get_command(f'{user}@{host}:/{home}/{user}/.[^.]*',
+                                   path_to_home_conf,
+                                   f'{self.logs_path}/rsync-output-conf-{user}.txt',
+                                   f'--exclude ".Trash" --exclude ".cache"')
+            # cmd =f"rsync --archive --verbose --exclude '.Trash' --exclude '.cache' --human-readable --itemize-changes --progress \
+            # --delete {user}@{host}:/{home}/{user}/.[^.]*  {path_to_home_conf} 2>&1 > {self.logs_path}/rsync-output-conf-{user}.txt"
+            self.run_command(cmd)
+
+    # TODO Add tqdm or "in progress" information
+    def rsync_modules(self, save_conf:bool = True):
         self.finding_missing_modules()
-        if (not os.path.isdir(self.backup_dirs['current'])):
-            os.makedirs(self.backup_dirs['current'])
+        self.backup_dirs['current'].mkdir(parents=False, exist_ok=True)
+        # if (not os.path.isdir(self.backup_dirs['current'])):
+        #     os.makedirs(self.backup_dirs['current'])
         for (k, v) in self.json_info['current'].items():
-            logging.info('## I am starting backup of %s', k)
-            user = v['user']
-            host = v['host']
-            host_os = v['os']
+            logging.info(f'## I am starting backup of {k}')
+            user, host, host_os = v['user'], v['host'], v['os']
             self.host_list.append([host, host_os, user])
             src_path = v['src_path']
-            logging.info('Backup for the user:host:  %s:%s ', user, host)
-            logging.info('In the following source path %s', src_path)
-            cmd = 'rsync --archive --verbose --human-readable --itemize-changes --progress \
-            --delete %s@%s:%s %s/%s 2>&1 > %s/rsync-output-%s.txt'% (user, host, src_path, self.backup_dirs['current'], k, self.logs_path, k)
-            subprocess.run(cmd, shell=True, universal_newlines=True, check=True)
-            logging.info("## The backup of %s is done!", k)
-        if (bkp_conf):
-            self.host_list = np.unique(self.host_list, axis=0)
+            logging.info(f'Backup for the user:host:  {user}:{host}')
+            logging.info(f'In the following source path {src_path}')
+            cmd = self.get_command(f'{user}@{host}:{src_path}',
+                                   f'{self.backup_dirs["current"]}/{k}',
+                                   f'{self.logs_path}/rsync-output-{k}.txt')
+            # cmd = f"rsync --archive --verbose --human-readable --itemize-changes --progress \
+            # --delete {user}@{host}:{src_path} {self.backup_dirs['current']}/{k} 2>&1 > {self.logs_path}/rsync-output-{k}.txt"
+            self.run_command(cmd)
+            logging.info(f"## The backup of {k} is done!")
+        if (save_conf):
             self.rsync_conf()
-        shutil.copy(self.json_file['current'],self.backup_dirs['current'])
+        shutil.copy(self.json_file['current'], self.backup_dirs['current'])
         self.write_date()
 
     def finding_missing_modules(self):
         if ('previous' in self.json_info) and (not self.json_info['previous'].items() <= self.json_info['current'].items()):
-            if (not os.path.isdir(self.backup_dirs['previous'])):
-                os.makedirs(self.backup_dirs['previous'])
+            self.backup_dirs['previous'].mkdir(parents=False, exist_ok=True)
+            # if (not os.path.isdir(self.backup_dirs['previous'])):
+            #     os.makedirs(self.backup_dirs['previous'])
             modules = self.json_info['previous'].keys() - self.json_info['current']
             for module in modules:
-                logging.info("## Moving %s ...", module)
-                src_dir = os.path.join(self.backup_dirs['current'], module)
-                dst_dir = os.path.join(self.backup_dirs['previous'], module)
+                logging.info(f"## Moving {module} ...")
+                # src_dir = os.path.join(self.backup_dirs['current'], module)
+                # dst_dir = os.path.join(self.backup_dirs['previous'], module)
+                src_dir = self.backup_dirs['current']/Path(module)
+                dst_dir = self.backup_dirs['previous']/Path(module)
                 if os.path.isdir(dst_dir):
                     shutil.rmtree(dst_dir)
                 shutil.move(src_dir, dst_dir)
             shutil.copy(self.json_file['previous'],self.backup_dirs['previous'])
-            shutil.copy(os.path.join(self.backup_dirs['current'],'backup_date.log'),self.backup_dirs['previous'])
+            shutil.copy(self.backup_dirs['current']/Path('backup_date.log'),self.backup_dirs['previous'])
 
     def load_info(self):
         self.json_info = {}
+        logging.debug(f'#### Loading json file from {self.json_file["current"]}')
         for item in self.json_file.items():
             if os.path.isfile(item[1]):
                 with open(item[1]) as f:
@@ -95,8 +135,10 @@ class bnBackupModule(object):
     
     def write_date(self):
         date_format="%Y%m%d-%H%M%S"
-        date_path = os.path.join(self.backup_dirs['current'],'backup_date.log')
+        date_path = self.backup_dirs['current']/Path('backup_date.log')
         date_info = datetime.datetime.now().strftime(date_format)
         date_file = open( date_path, "w+")
+        logging.debug(f'#### Date: {date_info}')
         date_file.write(date_info)
+        logging.debug(f'#### Date was written in {date_path}')
         date_file.close

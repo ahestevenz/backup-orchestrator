@@ -3,10 +3,10 @@ from __future__ import print_function
 
 from builtins import input
 import argparse
+from loguru import logger as logging
 import cProfile as profile
-import logging
 import shutil
-import os
+import os, sys
 
 # local 
 from bnBackupModule import bnBackupModule
@@ -24,7 +24,7 @@ def _main(args):
     """
 
     disksync = bnBackupModule.bnBackupModule(args['json_file'], args['backup_directory'])  
-    disksync.rsync_modules(bkp_conf = False)
+    disksync.rsync_modules(save_conf = False)
     
     return 0
     
@@ -41,15 +41,15 @@ def main():
 
     # Default Args
     argparser.add_argument('-v', '--verbose', help='Increase logging output  (default: INFO)'
-                            '(can be specified several times)', action='count', default=1)
+                            '(can be specified several times)', action='count', default=0)
     argparser.add_argument('-p', '--profile', help='Run with profiling and store '
                             'output in given file', metavar='output.prof')
     args = vars(argparser.parse_args())
 
-    FORMAT = '%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s'
-    _V_LEVELS = [logging.INFO, logging.DEBUG]
+    _V_LEVELS = ["INFO", "DEBUG"]
     loglevel = min(len(_V_LEVELS)-1, args['verbose'])
-    logging.basicConfig(format=FORMAT, level = _V_LEVELS[loglevel])
+    logging.remove()
+    logging.add(sys.stdout, level=_V_LEVELS[loglevel])
 
     if args['profile'] is not None:
         logging.info("Start profiling")
@@ -59,8 +59,6 @@ def main():
     else:
         logging.info("Running without profiling")
         r = _main(args)
-
-    logging.shutdown()
 
     return r
 

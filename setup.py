@@ -2,11 +2,11 @@ from setuptools import setup, find_packages
 
 
 def readme():
-    with open('README.rst') as f:
+    with open('README.md') as f:
         return f.read()
 
 setup(  name='bnBackupModule',
-        version='0.2.0',
+        version='0.3.0',
         description='Backup based on RSYNC command',
         packages=find_packages('src'),
         package_dir={'': 'src'},
@@ -17,12 +17,12 @@ setup(  name='bnBackupModule',
             'Intended Audience :: Developers',
         ],
         keywords='backup sync rsync',
-        url='https://github.com/ahestevenz/ll',
+        url='https://github.com/ahestevenz/backup-module',
         author='Ariel Hernandez <ahestevenz@bleiben.ar>',
         author_email='ahestevenz@bleiben.ar',
         license='Proprietary',
         install_requires=[
-            'numpy', 'pexpect', 'pytest-shutil'
+            'numpy', 'pexpect', 'pytest-shutil', 'loguru'
         ],
         test_suite='nose.collector',
         tests_require=['nose'],
