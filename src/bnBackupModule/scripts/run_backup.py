@@ -22,9 +22,8 @@ def _main(args):
     ----------
     args: namespace object as returned by ArgumentParser.parse_args()
     """
-
-    disksync = bnBackupModule.bnBackupModule(args['json_file'], args['backup_directory'])  
-    disksync.rsync_modules(save_conf = False)
+    disksync = bnBackupModule.bnBackupModule(args['json_file'], args['backup_directory'], args["loglevel"]) 
+    disksync.rsync_modules(save_conf = True)
     
     return 0
     
@@ -46,10 +45,10 @@ def main():
                             'output in given file', metavar='output.prof')
     args = vars(argparser.parse_args())
 
-    _V_LEVELS = ["INFO", "DEBUG"]
-    loglevel = min(len(_V_LEVELS)-1, args['verbose'])
+    _V_LEVELS = ["INFO", "DEBUG", "TRACE"]
+    args["loglevel"] = _V_LEVELS[min(len(_V_LEVELS)-1, args['verbose'])]
     logging.remove()
-    logging.add(sys.stdout, level=_V_LEVELS[loglevel])
+    logging.add(sys.stdout, level=args["loglevel"])
 
     if args['profile'] is not None:
         logging.info("Start profiling")

@@ -7,12 +7,11 @@ from loguru import logger as logging
 import subprocess
 import datetime
 import numpy as np
-import shlex
 from pathlib import Path
 
 class bnBackupModule(object):
 
-    def __init__(self, json_file:str, backup_directory_path:str):
+    def __init__(self, json_file:str, backup_directory_path:str, log_level:str):
         logging.info('## Welcome to the Backup System Management ##')
         logging.info(f'## The backup directory is {backup_directory_path}')
         self.host_list = []
@@ -24,6 +23,7 @@ class bnBackupModule(object):
         self.json_file['previous'] = self.backup_dirs['current']/self.json_file['current'].name
         self.logs_path = Path(backup_directory_path)/Path('logs')
         self.logs_path.mkdir(parents=True, exist_ok=True)
+        self.log_level = log_level
         self.load_info()
 
     def get_command(self, 
@@ -31,12 +31,17 @@ class bnBackupModule(object):
                     dst:str,
                     log:str,
                     extra_args:str = ""):
-        cmd =f"rsync --archive --verbose --human-readable --itemize-changes --info=progress2 --delete {extra_args} {src} {dst} 2>&1 > {log}"
+        if self.log_level == "DEBUG":
+            extra_args += " --stats"
+        cmd =f"rsync --archive --compress --log-file={log} --info=progress2 --delete {extra_args} {src} {dst}"
         return cmd
 
-    # TODO Add "in progress" information
     def run_subprocess(self, cmd:str):
-        subprocess.run(cmd, shell=True, universal_newlines=True, check=True, stdout=subprocess.PIPE)
+        with subprocess.Popen(cmd, stdout=subprocess.PIPE, bufsize=0, shell=True) as p:
+            char = p.stdout.read(1)
+            while char != b'':
+                print(char.decode('UTF-8'), end='', flush=True)
+                char = p.stdout.read(1)
         logging.debug(f'#### Running {cmd}')
 
     def rsync_conf(self):
