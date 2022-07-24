@@ -44,6 +44,8 @@ Once the python environment was configured, run the following procedure to insta
 
 ### Start your backup process
 
+![](https://github.com/ahestevenz/backup-module/blob/dev/assets/run-bn-backup.gif)
+
 ```run
 (venv_py39) ahestevenz@galactica:~/dev/backup-module(dev⚡) » bn-run-backup -h                                 
 usage: bn-run-backup [-h] [-j JSON_FILE] [-d BACKUP_DIRECTORY] [-v] [-p output.prof]
@@ -90,7 +92,7 @@ The JSON file specifies the modules which will be syncronized, and it must be wr
 
 Finally, only need to run (as an example):
 ```run
-(venv_py39) ahestevenz@galactica:~/dev/backup-module(dev⚡) » bn-run-backup -j my_conf.json -d /mnt/backup
+(venv_py39) ahestevenz@galactica:~/dev/backup-module(dev⚡) »bn-run-backup -j /Users/ahestevenz/.userfiles/conf/backup_test.json -d ~/temp
 ```
 
 ## TODO List 
