@@ -3,10 +3,10 @@ from __future__ import print_function
 
 from builtins import input
 import argparse
+from loguru import logger as logging
 import cProfile as profile
-import logging
 import shutil
-import os
+import os, sys
 
 # local 
 from bnBackupModule import bnBackupModule
@@ -22,9 +22,8 @@ def _main(args):
     ----------
     args: namespace object as returned by ArgumentParser.parse_args()
     """
-
-    disksync = bnBackupModule.bnBackupModule(args['json_file'], args['backup_directory'])  
-    disksync.rsync_modules(bkp_conf = False)
+    disksync = bnBackupModule.bnBackupModule(args['json_file'], args['backup_directory'], args["loglevel"]) 
+    disksync.rsync_modules(save_conf = True)
     
     return 0
     
@@ -41,15 +40,15 @@ def main():
 
     # Default Args
     argparser.add_argument('-v', '--verbose', help='Increase logging output  (default: INFO)'
-                            '(can be specified several times)', action='count', default=1)
+                            '(can be specified several times)', action='count', default=0)
     argparser.add_argument('-p', '--profile', help='Run with profiling and store '
                             'output in given file', metavar='output.prof')
     args = vars(argparser.parse_args())
 
-    FORMAT = '%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s'
-    _V_LEVELS = [logging.INFO, logging.DEBUG]
-    loglevel = min(len(_V_LEVELS)-1, args['verbose'])
-    logging.basicConfig(format=FORMAT, level = _V_LEVELS[loglevel])
+    _V_LEVELS = ["INFO", "DEBUG", "TRACE"]
+    args["loglevel"] = _V_LEVELS[min(len(_V_LEVELS)-1, args['verbose'])]
+    logging.remove()
+    logging.add(sys.stdout, level=args["loglevel"])
 
     if args['profile'] is not None:
         logging.info("Start profiling")
@@ -59,8 +58,6 @@ def main():
     else:
         logging.info("Running without profiling")
         r = _main(args)
-
-    logging.shutdown()
 
     return r
 
