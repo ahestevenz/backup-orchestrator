@@ -44,7 +44,7 @@ Once the python environment was configured, run the following procedure to insta
 
 ### Start your backup process
 
-![](https://github.com/ahestevenz/backup-module/blob/dev/assets/run-bn-backup.gif)
+![](./assets/run-bn-backup.gif)
 
 ```run
 (venv_py39) ahestevenz@galactica:~/dev/backup-module(dev⚡) » bn-run-backup -h                                 
