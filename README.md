@@ -1,8 +1,8 @@
-# Backup Module System
+# Backup Orchestrator 
 
-**bn-backup-module** is a python package which makes backups based on modules written in a JSON file. 
+**bn-backup-orchestrator** is a python package which makes backups based on modules written in a JSON file. 
 
-## bnBackupModule
+## BackupOrchestrator
 
 Python class that sync directories and files specified in a JSON file. This class uses methods based on RSYNC command with several arguments.
 

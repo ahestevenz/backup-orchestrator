@@ -9,7 +9,7 @@ import shutil
 import os, sys
 
 # local 
-from bnBackupModule import bnBackupModule
+from BackupOrchestrator import BackupOrchestrator
 
 __author__ = [ "Ariel Hernandez <ahestevenz@bleiben.ar>" ]
 __copyright__ = "Copyright 2020 Bleiben. All rights reserved."
@@ -22,7 +22,7 @@ def _main(args):
     ----------
     args: namespace object as returned by ArgumentParser.parse_args()
     """
-    disksync = bnBackupModule.bnBackupModule(args['json_file'], args['backup_directory'], args["loglevel"]) 
+    disksync = BackupOrchestrator.BackupOrchestrator(args['json_file'], args['backup_directory'], args["loglevel"]) 
     disksync.rsync_modules(save_conf = True)
     
     return 0
