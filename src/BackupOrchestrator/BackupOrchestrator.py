@@ -78,7 +78,7 @@ class BackupOrchestrator:
         """Ensure a directory exists."""
         path.mkdir(parents=True, exist_ok=True)
 
-    def _get_rsync_command(self, src: Path, dst: Path, log_file: Path, extra_args: str = "") -> str:
+    def _get_rsync_command(self, src: str, dst: Path, log_file: Path, extra_args: str = "") -> str:
         """Construct the rsync command."""
         if self.log_level == "DEBUG":
             extra_args += " --stats"
@@ -88,8 +88,12 @@ class BackupOrchestrator:
         """Execute a shell command using subprocess."""
         logging.debug(f"#### Executing command: {command}")
         with subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True) as process:
-            for line in process.stdout:
-                print(line, end="")
+            if process.stdout:
+                for line in process.stdout:
+                    print(line, end="")
+            else:
+                raise RuntimeError(
+                    "The subprocess did not provide a valid stdout stream.")
 
     def _move_missing_modules(self):
         """Identify and move missing modules from current to previous backup."""
