@@ -87,13 +87,19 @@ class BackupOrchestrator:
     def _execute_command(self, command: str):
         """Execute a shell command using subprocess."""
         logging.debug(f"#### Executing command: {command}")
-        with subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True) as process:
-            if process.stdout:
-                for line in process.stdout:
-                    print(line, end="")
-            else:
-                raise RuntimeError(
-                    "The subprocess did not provide a valid stdout stream.")
+        with subprocess.Popen(command, stdout=subprocess.PIPE, bufsize=0, shell=True) as p:
+            if p.stdout is not None:
+                char = p.stdout.read(1)
+                while char != b'':
+                    print(char.decode('UTF-8'), end='', flush=True)
+                    char = p.stdout.read(1)
+        # with subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True) as process:
+        #     if process.stdout:
+        #         for line in process.stdout:
+        #             print(line, end="")
+        #     else:
+        #         raise RuntimeError(
+        #             "The subprocess did not provide a valid stdout stream.")
 
     def _move_missing_modules(self):
         """Identify and move missing modules from current to previous backup."""

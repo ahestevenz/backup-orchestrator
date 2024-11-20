@@ -1,6 +1,6 @@
-# Backup Orchestrator 
+# Backup Orchestrator
 
-**bn-backup-orchestrator** is a python package which makes backups based on modules written in a JSON file. 
+**bn-backup-orchestrator** is a python package which makes backups based on modules written in a JSON file.
 
 ## BackupOrchestrator
 
@@ -29,7 +29,7 @@ source /usr/local/bin/virtualenvwrapper.sh
 After editing it, reload the startup file (e.g., run `source ~/.bashrc`) and create a python environment:
 
 ```
-$ mkvirtualenv venv_py 
+$ mkvirtualenv venv_py
 $ workon venv_py
 ```
 
@@ -47,10 +47,10 @@ Once the python environment was configured, run the following procedure to insta
 ![](./assets/run-bn-backup.gif)
 
 ```run
-(venv_py39) ahestevenz@galactica:~/dev/backup-module(dev⚡) » bn-run-backup -h                                 
+(venv_py39) ahestevenz@galactica:~/dev/backup-orchestrator(dev⚡) » bn-run-backup -h
 usage: bn-run-backup [-h] [-j JSON_FILE] [-d BACKUP_DIRECTORY] [-v] [-p output.prof]
 
-Welcome to the Backup Module Management
+Welcome to the Backup Orchestrator Management
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -77,13 +77,13 @@ The JSON file specifies the modules which will be syncronized, and it must be wr
         "os" : "darwin"
         },
         "dir2-ahe" : {
-        "src_path"  : "/Users/ahestevenz/dir2",   
+        "src_path"  : "/Users/ahestevenz/dir2",
         "user"  : "ahestevenz",
         "host"  : "galactica",
         "os" : "darwin"
         },
         "dir3-ahe" : {
-        "src_path"  : "/home/ahestevenz/dir3", 
+        "src_path"  : "/home/ahestevenz/dir3",
         "user"  : "ahestevenz",
         "host"  : "columbia",
         "os" : "linux"
@@ -92,8 +92,8 @@ The JSON file specifies the modules which will be syncronized, and it must be wr
 
 Finally, only need to run (as an example):
 ```run
-(venv_py39) ahestevenz@galactica:~/dev/backup-module(dev⚡) »bn-run-backup -j /Users/ahestevenz/.userfiles/conf/backup_test.json -d ~/temp
+(venv_py39) ahestevenz@galactica:~/dev/backup-orchestrator(dev⚡) »bn-run-backup -j /Users/ahestevenz/.userfiles/conf/backup_test.json -d ~/temp
 ```
 
-## TODO List 
+## TODO List
 - [x] Add Docker container option
