@@ -1,4 +1,5 @@
- # TODO:
+# -*- coding: utf-8 -*-
+# TODO:
 # Sanity check for each computer
 # Sanity check for every dst directory
 # Handle network issues
@@ -6,14 +7,15 @@
 # Can we recofigure SSH connections if they are missing?
 # Verify the backup
 
-from typing import List, Dict
-from pathlib import Path
+import datetime
 import json
 import shutil
 import subprocess
-import datetime
+from pathlib import Path
+from typing import Dict, List
+
 from loguru import logger as logging
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ValidationError
 
 
 class HostInfo(BaseModel):
@@ -55,9 +57,11 @@ class BackupOrchestrator:
             if file_path.is_file():
                 with file_path.open() as f:
                     try:
-                        self.json_info[key] = BackupConfig(modules=json.load(f))
+                        self.json_info[key] = BackupConfig(
+                            modules=json.load(f))
                     except ValidationError as e:
-                        logging.error(f"Invalid backup configuration in {file_path}: {e}")
+                        logging.error(
+                            f"Invalid backup configuration in {file_path}: {e}")
                         raise
             else:
                 self.json_info[key] = BackupConfig(modules={})
@@ -74,7 +78,7 @@ class BackupOrchestrator:
         """Ensure a directory exists."""
         path.mkdir(parents=True, exist_ok=True)
 
-    def _get_rsync_command(self, src: str, dst: str, log_file: Path, extra_args: str = "") -> str:
+    def _get_rsync_command(self, src: Path, dst: Path, log_file: Path, extra_args: str = "") -> str:
         """Construct the rsync command."""
         if self.log_level == "DEBUG":
             extra_args += " --stats"
@@ -91,7 +95,8 @@ class BackupOrchestrator:
         """Identify and move missing modules from current to previous backup."""
         if "previous" in self.json_info and self.json_info["previous"].modules != self.json_info["current"].modules:
             self._prepare_directory(self.backup_dirs["previous"])
-            missing_modules = set(self.json_info["previous"].modules) - set(self.json_info["current"].modules)
+            missing_modules = set(
+                self.json_info["previous"].modules) - set(self.json_info["current"].modules)
             for module in missing_modules:
                 logging.info(f"## Moving missing module: {module}")
                 src_dir = self.backup_dirs["current"] / module
@@ -100,13 +105,16 @@ class BackupOrchestrator:
                     shutil.rmtree(dst_dir)
                 if src_dir.exists():
                     shutil.move(src_dir, dst_dir)
-            shutil.copy(self.json_file["previous"], self.backup_dirs["previous"])
-            shutil.copy(self.backup_dirs["current"] / "backup_date.log", self.backup_dirs["previous"])
+            shutil.copy(self.json_file["previous"],
+                        self.backup_dirs["previous"])
+            shutil.copy(
+                self.backup_dirs["current"] / "backup_date.log", self.backup_dirs["previous"])
 
     def _backup_host_configuration(self, host_info: HostInfo):
         """Backup configuration files and home directory for a specific host."""
         home_dir = "home" if host_info.os == "linux" else "Users"
-        host_path = self.backup_dirs["current"] / f"{host_info.user}-{host_info.host}"
+        host_path = self.backup_dirs["current"] / \
+            f"{host_info.user}-{host_info.host}"
         self._prepare_directory(host_path)
 
         # Backup /etc configuration files
@@ -115,7 +123,8 @@ class BackupOrchestrator:
             cmd = self._get_rsync_command(
                 src=f"{host_info.user}@{host_info.host}:/etc/{file}",
                 dst=host_path / "hosts",
-                log_file=self.logs_dir / f"rsync-output-conf-hosts-{host_info.user}.txt",
+                log_file=self.logs_dir /
+                    f"rsync-output-conf-hosts-{host_info.user}.txt",
             )
             self._execute_command(cmd)
 
@@ -150,7 +159,8 @@ class BackupOrchestrator:
         if save_conf:
             unique_hosts = {f"{h.user}@{h.host}" for h in self.host_list}
             for host in unique_hosts:
-                host_info = next(h for h in self.host_list if f"{h.user}@{h.host}" == host)
+                host_info = next(
+                    h for h in self.host_list if f"{h.user}@{h.host}" == host)
                 self._backup_host_configuration(host_info)
 
         shutil.copy(self.json_file["current"], self.backup_dirs["current"])
@@ -184,9 +194,9 @@ class BackupOrchestrator:
 #         self.logs_path.mkdir(parents=True, exist_ok=True)
 #         self.log_level = log_level
 #         self.load_info()
-    
-#     def get_command(self, 
-#                     src:str, 
+
+#     def get_command(self,
+#                     src:str,
 #                     dst:str,
 #                     log:str,
 #                     extra_args:str = ""):
@@ -265,7 +275,7 @@ class BackupOrchestrator:
 #             if os.path.isfile(item[1]):
 #                 with open(item[1]) as f:
 #                     self.json_info[item[0]] = json.load(f)
-    
+
 #     def write_date(self):
 #         date_format="%Y%m%d-%H%M%S"
 #         date_path = self.backup_dirs['current']/Path('backup_date.log')
