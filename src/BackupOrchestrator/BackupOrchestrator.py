@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Dict, List
 
 from loguru import logger as logging
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 
 class HostInfo(BaseModel):
@@ -27,26 +27,40 @@ class HostInfo(BaseModel):
 
 
 class BackupConfig(BaseModel):
+    json_file: Path
+    backup_directory: Path
+    loglevel: str = Field(default="INFO")
+
+    @field_validator("loglevel")
+    def validate_loglevel(cls, v):
+        valid_levels = ["INFO", "DEBUG", "TRACE"]
+        if v not in valid_levels:
+            raise ValueError(
+                f"Invalid loglevel: {v}. Choose from {valid_levels}")
+        return v
+
+
+class BackupModules(BaseModel):
     """Represents the backup configuration from a JSON file."""
     modules: Dict[str, HostInfo]
 
 
 class BackupOrchestrator:
-    def __init__(self, json_file: str, backup_dir: str, log_level: str = "INFO"):
+    def __init__(self, config: BackupConfig):
         logging.info("## Welcome to the Backup System Management ##")
         self.backup_dirs = {
-            "current": Path(backup_dir) / "current",
-            "previous": Path(backup_dir) / "previous",
+            "current": Path(config.backup_directory) / "current",
+            "previous": Path(config.backup_directory) / "previous",
         }
         self.json_file = {
-            "current": Path(json_file),
-            "previous": self.backup_dirs["current"] / Path(json_file).name,
+            "current": Path(config.json_file),
+            "previous": self.backup_dirs["current"] / Path(config.json_file).name,
         }
-        self.logs_dir = Path(backup_dir) / "logs"
+        self.logs_dir = Path(config.backup_directory) / "logs"
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         self.host_list: List[HostInfo] = []
-        self.log_level = log_level
-        self.json_info: Dict[str, BackupConfig] = {}
+        self.log_level = config.log_level
+        self.json_info: Dict[str, BackupModules] = {}
 
         self._load_backup_info()
 
@@ -57,14 +71,14 @@ class BackupOrchestrator:
             if file_path.is_file():
                 with file_path.open() as f:
                     try:
-                        self.json_info[key] = BackupConfig(
+                        self.json_info[key] = BackupModules(
                             modules=json.load(f))
                     except ValidationError as e:
                         logging.error(
                             f"Invalid backup configuration in {file_path}: {e}")
                         raise
             else:
-                self.json_info[key] = BackupConfig(modules={})
+                self.json_info[key] = BackupModules(modules={})
 
     def _write_backup_date(self):
         """Write the current backup date to a log file."""
