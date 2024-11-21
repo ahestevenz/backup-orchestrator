@@ -7,14 +7,14 @@ from pathlib import Path
 
 from loguru import logger as logging
 
-from BackupOrchestrator import BackupOrchestrator
+from BackupOrchestrator.BackupOrchestrator import BackupConfig, BackupOrchestrator
 
 __author__ = ["Ariel Hernandez <ahestevenz@bleiben.ar>"]
 __copyright__ = "Copyright 2024 Bleiben. All rights reserved."
 __license__ = """Proprietary"""
 
 
-def _main(config: BackupOrchestrator.BackupConfig):
+def _main(config: BackupConfig):
     """Actual program (without command line parsing). This is so we can profile.
 
     Parameters
@@ -22,7 +22,7 @@ def _main(config: BackupOrchestrator.BackupConfig):
     config : Config
         Configuration object containing validated arguments.
     """
-    disksync = BackupOrchestrator.BackupOrchestrator(config=config)
+    disksync = BackupOrchestrator(config=config)
     disksync.rsync_modules(save_conf=True)
     return 0
 
@@ -64,7 +64,7 @@ def main():
 
     # Create Config instance with validated arguments
     try:
-        config = BackupOrchestrator.BackupConfig(
+        config = BackupConfig(
             json_file=Path(args.json_file),
             backup_directory=Path(args.backup_directory),
             loglevel=loglevel,
