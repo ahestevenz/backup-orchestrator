@@ -50,12 +50,19 @@ class BackupOrchestrator:
         logging.info("## Welcome to the Backup System Management ##")
         self.backup_dirs = {
             "current": Path(config.backup_directory) / "current",
-            "previous": Path(config.backup_directory) / "previous",
         }
         self.json_file = {
             "current": Path(config.json_file),
-            "previous": self.backup_dirs["current"] / Path(config.json_file).name,
         }
+        previous_config_file = self.backup_dirs["current"] / \
+            self.json_file["current"].name
+        if previous_config_file.exists():
+            self.backup_dirs["previous"] = Path(
+                config.backup_directory) / "previous"
+            self.json_file["previous"] = previous_config_file
+        else:
+            logging.info("No previous configuration found.")
+
         self.logs_dir = Path(config.backup_directory) / "logs"
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         self.host_list: List[HostInfo] = []
