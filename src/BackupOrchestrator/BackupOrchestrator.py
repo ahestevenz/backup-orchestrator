@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 # TODO:
 # Sanity check for each computer
-# Handle network issues
-# Handle current/previous directories with different dst directories
 # Can we recofigure SSH connections if they are missing?
+# Handle network issues
+
+# Handle current/previous directories with different dst directories
+
 # Verify the backup
 
 import datetime
@@ -53,8 +55,8 @@ class BackupOrchestrator:
                     f"Directory {config.backup_directory} created successfully.")
             except Exception as e:
                 raise NotADirectoryError(
-                    f"Cannot create the directory {config.backup_directory}. Please \
-                    check permissions and verify the directory path."
+                    f"Cannot create the directory {config.backup_directory}."
+                    + "Please check permissions and verify the directory path."
                 ) from e
 
         logging.info("## Welcome to the Backup System Management ##")
@@ -185,7 +187,8 @@ class BackupOrchestrator:
                         f.write(f"- {module}\n")
                 else:
                     f.write("\n")
-            f.write(date_info)
+            f.write("\n")
+            f.write(f"Date: {date_info}")
 
     def rsync_modules(self, save_conf: bool = True):
         """Perform backup of all modules."""
