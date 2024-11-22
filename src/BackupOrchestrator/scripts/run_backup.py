@@ -67,14 +67,14 @@ def main():
         config = BackupConfig(
             json_file=Path(args.json_file),
             backup_directory=Path(args.backup_directory),
-            loglevel=loglevel,
+            log_level=loglevel,
         )
     except ValueError as e:
         print(f"Configuration Error: {e}")
         sys.exit(1)
 
     logging.remove()
-    logging.add(sys.stdout, level=config.loglevel)
+    logging.add(sys.stdout, level=config.log_level)
 
     if args.profile:
         logging.info("Start profiling")

@@ -29,14 +29,14 @@ class HostInfo(BaseModel):
 class BackupConfig(BaseModel):
     json_file: Path
     backup_directory: Path
-    loglevel: str = Field(default="INFO")
+    log_level: str = Field(default="INFO")
 
-    @field_validator("loglevel")
+    @field_validator("log_level")
     def validate_loglevel(cls, v):
         valid_levels = ["INFO", "DEBUG", "TRACE"]
         if v not in valid_levels:
             raise ValueError(
-                f"Invalid loglevel: {v}. Choose from {valid_levels}")
+                f"Invalid log_level: {v}. Choose from {valid_levels}")
         return v
 
 
