@@ -61,13 +61,14 @@ options:
                         Run with profiling and store output in given file
 ```
 
-The command *bn-run-backup* uses one arguments to backup your system:
+The command *bn-run-backup* uses only one argument to backup your system:
 * The YAML configuration file
 
 The YAML file specifies the modules which will be syncronized, and it must be written with the format described below.
 ```
 settings:
   backup_directory: "/path/to/backup"
+  verify_backup: false
 
 modules:
   dir1-ahe:

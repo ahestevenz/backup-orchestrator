@@ -6,8 +6,6 @@
 
 # Handle current/previous directories with different dst directories
 
-# Verify the backup
-
 import datetime
 import shutil
 import subprocess
@@ -102,6 +100,7 @@ class BackupOrchestrator:
                     settings = config_data.get("settings", {})
                     self.backup_directory = Path(
                         self._get_required_setting(settings, "backup_directory"))
+                    self.verify_backup = settings.get("verify_backup", False)
 
                     # Validate and assign modules
                     modules = config_data.get("modules", {})
@@ -137,6 +136,10 @@ class BackupOrchestrator:
         """Construct the rsync command."""
         if self.log_level == "DEBUG":
             extra_args += " --stats"
+        if self.verify_backup:
+            logging.warning(
+                "Backup verification is enabled; the current backup process may take longer than usual.")
+            extra_args += "--checksum"
         return f"rsync --archive --compress --log-file={log_file} --info=progress2 --delete {extra_args} {src} {dst}"
 
     def _execute_command(self, command: str):
