@@ -24,7 +24,7 @@ setup(name='bnBackupOrchestrator',
       author_email='ahestevenz@bleiben.ar',
       license='Proprietary',
       install_requires=[
-          'numpy', 'pexpect', 'pytest-shutil', 'loguru'
+          'numpy', 'pexpect', 'pytest-shutil', 'loguru', 'pyyaml'
       ],
       test_suite='nose.collector',
       tests_require=['nose'],

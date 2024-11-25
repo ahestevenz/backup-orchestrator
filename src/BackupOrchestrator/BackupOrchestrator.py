@@ -9,12 +9,12 @@
 # Verify the backup
 
 import datetime
-import json
 import shutil
 import subprocess
 from pathlib import Path
 from typing import Dict, List
 
+import yaml
 from loguru import logger as logging
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
@@ -28,8 +28,7 @@ class HostInfo(BaseModel):
 
 
 class BackupConfig(BaseModel):
-    json_file: Path
-    backup_directory: Path
+    yaml_file: Path
     log_level: str = Field(default="INFO")
 
     @field_validator("log_level")
@@ -48,64 +47,84 @@ class BackupModules(BaseModel):
 
 class BackupOrchestrator:
     def __init__(self, config: BackupConfig):
-        if not config.backup_directory.exists():
+        self.yaml_info: Dict[str, BackupModules] = {}
+        self.config = config
+        self._load_backup_info()
+        if not self.backup_directory.exists():
             try:
-                config.backup_directory.mkdir(parents=True, exist_ok=True)
+                self.backup_directory.mkdir(parents=True, exist_ok=True)
                 logging.info(
-                    f"Directory {config.backup_directory} created successfully.")
+                    f"Directory {self.backup_directory} created successfully.")
             except Exception as e:
                 raise NotADirectoryError(
-                    f"Cannot create the directory {config.backup_directory}."
+                    f"Cannot create the directory {self.backup_directory}."
                     + "Please check permissions and verify the directory path."
                 ) from e
 
-        logging.info("## Welcome to the Backup System Management ##")
-        self.config = config
-        self.log_level = config.log_level
+        logging.success("## Welcome to the Backup System Management ##")
+        self.log_level = self.config.log_level
         self.host_list: List[HostInfo] = []
         self.report_modules: Dict[str, List[str]] = {
             "successful": [],
             "failed": []
         }
-        self.json_info: Dict[str, BackupModules] = {}
-
-        self._load_backup_info()
-
-        # Ensure logs directory exists
         self.get_logs_path().mkdir(parents=True, exist_ok=True)
 
     def get_current_backup_path(self) -> Path:
         """Returns the path to the current backup directory."""
-        return self.config.backup_directory / "current"
+        return self.backup_directory / "current"
 
     def get_previous_backup_path(self) -> Path:
         """Returns the path to the previous backup directory."""
-        return self.config.backup_directory / "previous"
+        return self.backup_directory / "previous"
 
     def get_logs_path(self) -> Path:
         """Returns the path to the logs directory."""
-        return self.config.backup_directory / "logs"
+        return self.backup_directory / "logs"
+
+    def _get_required_setting(self, settings: dict, key: str) -> str:
+        """Fetch a required setting or raise an error if it is missing."""
+        value = settings.get(key)
+        if value is None:
+            raise ValueError(
+                f"The '{key}' field is required in the 'settings' section of the configuration file.")
+        return value
 
     def _load_backup_info(self):
-        """Load and validate backup configuration from JSON files."""
-        logging.debug("#### Loading JSON file information.")
-        current_json_file = self.config.json_file
-        if current_json_file.is_file():
-            with current_json_file.open() as f:
+        """Load and validate backup configuration from YAML files."""
+        logging.debug("#### Loading YAML file information.")
+
+        current_yaml_file = self.config.yaml_file
+        if current_yaml_file.is_file():
+            with current_yaml_file.open() as f:
                 try:
-                    self.json_info["current"] = BackupModules(
-                        modules=json.load(f))
+                    config_data = yaml.safe_load(f)
+                    settings = config_data.get("settings", {})
+                    self.backup_directory = Path(
+                        self._get_required_setting(settings, "backup_directory"))
+
+                    # Validate and assign modules
+                    modules = config_data.get("modules", {})
+                    self.yaml_info["current"] = BackupModules(modules=modules)
+
                 except ValidationError as e:
                     logging.error(
-                        f"Invalid backup configuration in {current_json_file}: {e}")
+                        f"Invalid backup configuration in {current_yaml_file}: {e}")
                     raise
         else:
-            self.json_info["current"] = BackupModules(modules={})
+            self.yaml_info["current"] = BackupModules(modules={})
 
-        previous_config_file = self.get_current_backup_path() / current_json_file.name
+        previous_config_file = self.get_current_backup_path() / current_yaml_file.name
         if previous_config_file.exists():
-            self.json_info["previous"] = BackupModules(
-                modules=json.load(previous_config_file.open()))
+            with previous_config_file.open() as f:
+                try:
+                    previous_config_data = yaml.safe_load(f)
+                    self.yaml_info["previous"] = BackupModules(
+                        modules=previous_config_data.get("modules", {}))
+                except ValidationError as e:
+                    logging.error(
+                        f"Invalid backup configuration in {previous_config_file}: {e}")
+                    raise
         else:
             logging.warning(
                 "No previous backup found; skipping the copy of backup-related files.")
@@ -135,19 +154,19 @@ class BackupOrchestrator:
         previous_backup_path = self.get_previous_backup_path()
         current_backup_path = self.get_current_backup_path()
 
-        if "previous" in self.json_info and self.json_info["previous"].modules != self.json_info["current"].modules:
+        if "previous" in self.yaml_info and self.yaml_info["previous"].modules != self.yaml_info["current"].modules:
             self._prepare_directory(previous_backup_path)
             missing_modules = set(
-                self.json_info["previous"].modules) - set(self.json_info["current"].modules)
+                self.yaml_info["previous"].modules) - set(self.yaml_info["current"].modules)
             for module in missing_modules:
-                logging.info(f"## Moving missing module: {module}")
+                logging.warning(f"## Moving missing module: {module}")
                 src_dir = current_backup_path / module
                 dst_dir = previous_backup_path / module
                 if dst_dir.is_dir():
                     shutil.rmtree(dst_dir)
                 if src_dir.exists():
                     shutil.move(src_dir, dst_dir)
-            shutil.copy(self.config.json_file, previous_backup_path)
+            shutil.copy(self.config.yaml_file, previous_backup_path)
             shutil.copy(
                 current_backup_path / "backup_report.log", previous_backup_path)
 
@@ -206,7 +225,7 @@ class BackupOrchestrator:
         self._move_missing_modules()
         self._prepare_directory(self.get_current_backup_path())
 
-        for module_name, host_info in self.json_info["current"].modules.items():
+        for module_name, host_info in self.yaml_info["current"].modules.items():
             logging.info(f"## Starting backup for module: {module_name}")
             self.host_list.append(host_info)
 
@@ -235,5 +254,5 @@ class BackupOrchestrator:
                     h for h in self.host_list if f"{h.user}@{h.host}" == host)
                 self._backup_host_configuration(host_info)
 
-        shutil.copy(self.config.json_file, self.get_current_backup_path())
+        shutil.copy(self.config.yaml_file, self.get_current_backup_path())
         self._write_report()

@@ -34,15 +34,9 @@ def main():
     )
     argparser.add_argument(
         "-j",
-        "--json_file",
-        help='JSON file with backup set points (default: "%(default)s")',
-        default="/Users/ahestevenz/.userfiles/conf/backup.json",
-    )
-    argparser.add_argument(
-        "-d",
-        "--backup_directory",
-        help='Destination directory (default: "%(default)s")',
-        default="/Volumes/Datensicherung/Datensicherung/",
+        "--yaml_file",
+        help='YAML file with backup set points (default: "%(default)s")',
+        default="/Users/ahestevenz/.userfiles/conf/backup.yaml",
     )
     argparser.add_argument(
         "-v",
@@ -65,8 +59,7 @@ def main():
     # Create Config instance with validated arguments
     try:
         config = BackupConfig(
-            json_file=Path(args.json_file),
-            backup_directory=Path(args.backup_directory),
+            yaml_file=Path(args.yaml_file),
             log_level=loglevel,
         )
     except ValueError as e:
