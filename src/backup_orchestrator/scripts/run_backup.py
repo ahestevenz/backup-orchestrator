@@ -35,7 +35,7 @@ def main():
         "-j",
         "--yaml_file",
         help='YAML file with backup set points (default: "%(default)s")',
-        default="/Users/ahestevenz/.userfiles/conf/backup.yaml",
+        default="/Users/ahestevenz/.userfiles/conf/backup.yml",
     )
     argparser.add_argument(
         "-v",
