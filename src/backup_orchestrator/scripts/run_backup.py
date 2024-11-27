@@ -7,11 +7,10 @@ from pathlib import Path
 
 from loguru import logger as logging
 
-from BackupOrchestrator.BackupOrchestrator import BackupConfig, BackupOrchestrator
+from backup_orchestrator.backup_orchestrator import BackupConfig, BackupOrchestrator
 
 __author__ = ["Ariel Hernandez <ahestevenz@bleiben.ar>"]
 __copyright__ = "Copyright 2024 Bleiben. All rights reserved."
-__license__ = """Proprietary"""
 
 
 def _main(config: BackupConfig):

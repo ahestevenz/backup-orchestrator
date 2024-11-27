@@ -1,20 +1,14 @@
 # -*- coding: utf-8 -*-
-# TODO:
-# Sanity check for each computer
-# Can we recofigure SSH connections if they are missing?
-# Handle network issues
-
-# Handle current/previous directories with different dst directories
-
 import datetime
 import shutil
-import subprocess
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import yaml
 from loguru import logger as logging
 from pydantic import BaseModel, Field, ValidationError, field_validator
+
+from backup_orchestrator.private.command_executor import CommandExecutor, RsyncError
 
 
 class HostInfo(BaseModel):
@@ -39,33 +33,42 @@ class BackupConfig(BaseModel):
 
 
 class BackupModules(BaseModel):
-    """Represents the backup configuration from a JSON file."""
-    modules: Dict[str, HostInfo]
+    """Represents the backup configuration from a YAML file."""
+    modules: Dict[str, HostInfo] = Field(default_factory=dict)
 
 
-class BackupOrchestrator:
-    def __init__(self, config: BackupConfig):
-        self.yaml_info: Dict[str, BackupModules] = {}
-        self.config = config
+class BackupOrchestrator(BaseModel):
+    """Pydantic-powered BackupOrchestrator class."""
+    config: BackupConfig
+    yaml_info: Dict[str, BackupModules] = Field(default_factory=dict)
+    host_list: List = Field(default_factory=list)
+    report: Dict[str, List[str]] = Field(
+        default_factory=lambda: {"successful": [],
+                                 "failed": [], "unreachable_hosts": []}
+    )
+    executor: CommandExecutor = Field(default=None, exclude=True)
+    backup_directory: Path = Field(default=None)
+    verify_backup: bool = Field(default=False)
+
+    def model_post_init(self, __context: Any) -> None:
+        """Perform additional initialization and validation after parsing."""
         self._load_backup_info()
         if not self.backup_directory.exists():
             try:
                 self.backup_directory.mkdir(parents=True, exist_ok=True)
                 logging.info(
-                    f"Directory {self.backup_directory} created successfully.")
+                    f"Directory {self.backup_directory} created successfully."
+                )
             except Exception as e:
                 raise NotADirectoryError(
-                    f"Cannot create the directory {self.backup_directory}."
-                    + "Please check permissions and verify the directory path."
+                    f"Cannot create the directory {self.backup_directory}. "
+                    "Please check permissions and verify the directory path."
                 ) from e
 
-        logging.success("## Welcome to the Backup System Management ##")
-        self.log_level = self.config.log_level
-        self.host_list: List[HostInfo] = []
-        self.report_modules: Dict[str, List[str]] = {
-            "successful": [],
-            "failed": []
-        }
+        logging.info("## Welcome to the Backup System Management ##")
+
+        self.executor = CommandExecutor(
+            log_level=self.config.log_level, verify_backup=self.verify_backup)
         self.get_logs_path().mkdir(parents=True, exist_ok=True)
 
     def get_current_backup_path(self) -> Path:
@@ -111,7 +114,9 @@ class BackupOrchestrator:
                         f"Invalid backup configuration in {current_yaml_file}: {e}")
                     raise
         else:
-            self.yaml_info["current"] = BackupModules(modules={})
+            logging.warning(
+                "No current YAML file found. Initializing empty modules.")
+            self.yaml_info["current"] = BackupModules()
 
         previous_config_file = self.get_current_backup_path() / current_yaml_file.name
         if previous_config_file.exists():
@@ -131,26 +136,6 @@ class BackupOrchestrator:
     def _prepare_directory(self, path: Path):
         """Ensure a directory exists."""
         path.mkdir(parents=True, exist_ok=True)
-
-    def _get_rsync_command(self, src: str, dst: Path, log_file: Path, extra_args: str = "") -> str:
-        """Construct the rsync command."""
-        if self.log_level == "DEBUG":
-            extra_args += " --stats"
-        if self.verify_backup:
-            logging.warning(
-                "Backup verification is enabled; the current backup process may take longer than usual.")
-            extra_args += "--checksum"
-        return f"rsync --archive --compress --log-file={log_file} --info=progress2 --delete {extra_args} {src} {dst}"
-
-    def _execute_command(self, command: str):
-        """Execute a shell command using subprocess."""
-        logging.debug(f"#### Executing command: {command}")
-        with subprocess.Popen(command, stdout=subprocess.PIPE, bufsize=0, shell=True) as p:
-            if p.stdout is not None:
-                char = p.stdout.read(1)
-                while char != b'':
-                    print(char.decode('UTF-8'), end='', flush=True)
-                    char = p.stdout.read(1)
 
     def _move_missing_modules(self):
         """Identify and move missing modules from current to previous backup."""
@@ -179,29 +164,34 @@ class BackupOrchestrator:
         host_path = self.get_current_backup_path(
         ) / f"{host_info.user}-{host_info.host}"
         self._prepare_directory(host_path)
+        try:
+            # Backup /etc configuration files
+            etc_files = ["motd", "hosts"]
+            for file in etc_files:
+                cmd = self.executor.get_rsync_command(
+                    src=f"{host_info.user}@{host_info.host}:/etc/{file}",
+                    dst=host_path / "hosts",
+                    log_file=self.get_logs_path(
+                    ) / f"rsync-output-conf-hosts-{host_info.user}.txt",
+                )
+                self.executor.execute_command(cmd)
 
-        # Backup /etc configuration files
-        etc_files = ["motd", "hosts"]
-        for file in etc_files:
-            cmd = self._get_rsync_command(
-                src=f"{host_info.user}@{host_info.host}:/etc/{file}",
-                dst=host_path / "hosts",
+            # Backup home directory
+            home_conf_path = host_path / host_info.user
+            self._prepare_directory(home_conf_path)
+            cmd = self.executor.get_rsync_command(
+                src=f"{host_info.user}@{host_info.host}:/{home_dir}/{host_info.user}/.[^.]*",
+                dst=home_conf_path,
                 log_file=self.get_logs_path(
-                ) / f"rsync-output-conf-hosts-{host_info.user}.txt",
+                ) / f"rsync-output-conf-{host_info.user}.txt",
+                extra_args="--exclude '.Trash' --exclude '.cache'",
             )
-            self._execute_command(cmd)
-
-        # Backup home directory
-        home_conf_path = host_path / host_info.user
-        self._prepare_directory(home_conf_path)
-        cmd = self._get_rsync_command(
-            src=f"{host_info.user}@{host_info.host}:/{home_dir}/{host_info.user}/.[^.]*",
-            dst=home_conf_path,
-            log_file=self.get_logs_path(
-            ) / f"rsync-output-conf-{host_info.user}.txt",
-            extra_args="--exclude '.Trash' --exclude '.cache'",
-        )
-        self._execute_command(cmd)
+            self.executor.execute_command(cmd)
+        except RsyncError as e:
+            logging.error(
+                f"## Host: {host_info.host} has the following error: \n {e}.")
+            self.report["unreachable_hosts"].append(
+                f" Host {host_info.host}: \n {e}")
 
     def _write_report(self):
         """Write the current backup report to a log file."""
@@ -212,16 +202,18 @@ class BackupOrchestrator:
         with report_file.open('w') as f:
             f.write("Backup Report\n")
             f.write("====================\n\n")
-            for report in self.report_modules.keys():
+            f.write("\n")
+            f.write("# Modules\n")
+            for report in self.report.keys():
                 f.write("\n")
-                f.write(f"{report.capitalize()} Modules:\n")
-                if self.report_modules[report]:
-                    for module in self.report_modules[report]:
-                        f.write(f"- {module}\n")
+                f.write(f"{report.title()}:\n")
+                if self.report[report]:
+                    for item in self.report[report]:
+                        f.write(f"  - {item}\n")
                 else:
                     f.write("\n")
             f.write("\n")
-            f.write(f"Date: {date_info}")
+            f.write(f"# Date: {date_info}")
 
     def rsync_modules(self, save_conf: bool = True):
         """Perform backup of all modules."""
@@ -232,27 +224,28 @@ class BackupOrchestrator:
             logging.info(f"## Starting backup for module: {module_name}")
             self.host_list.append(host_info)
 
-            if Path(host_info.src_path).exists():
-                cmd = self._get_rsync_command(
+            try:
+                cmd = self.executor.get_rsync_command(
                     src=f"{host_info.user}@{host_info.host}:{host_info.src_path}",
                     dst=self.get_current_backup_path() / module_name,
                     log_file=self.get_logs_path(
                     ) / f"rsync-output-{module_name}.txt",
                 )
-                self._execute_command(cmd)
-                self.report_modules["successful"].append(
+                self.executor.execute_command(cmd)
+                self.report["successful"].append(
                     f" {module_name}: {host_info.src_path}")
                 logging.success(
                     f"## Backup completed for module: {module_name}")
-            else:
+            except RsyncError as e:
                 logging.error(
-                    f"## Module: {module_name}, {host_info.src_path} does not exist.")
-                self.report_modules["failed"].append(
+                    f"## Module: {module_name}, {host_info.src_path} has the following error: \n {e}.")
+                self.report["failed"].append(
                     f" {module_name}: {host_info.src_path}")
 
         if save_conf:
             unique_hosts = {f"{h.user}@{h.host}" for h in self.host_list}
             for host in unique_hosts:
+                logging.info(f"## Starting backup for host: {host}")
                 host_info = next(
                     h for h in self.host_list if f"{h.user}@{h.host}" == host)
                 self._backup_host_configuration(host_info)

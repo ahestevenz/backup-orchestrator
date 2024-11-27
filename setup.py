@@ -7,16 +7,16 @@ def readme():
         return f.read()
 
 
-setup(name='bnBackupOrchestrator',
-      version='0.3.0',
+setup(name='backup-orchestrator',
+      version='1.0.0',
       description='Backup based on RSYNC command',
       packages=find_packages('src'),
       package_dir={'': 'src'},
       long_description=readme(),
       classifiers=[
-          'Development Status :: 3 - Alpha',
+          'Development Status :: 5 - Production/Stable',
           'Programming Language :: Python :: 3',
-          'Intended Audience :: Developers',
+          'Intended Audience :: End Users/Desktop',
       ],
       keywords='backup sync rsync',
       url='https://github.com/ahestevenz/backup-orchestrator',
@@ -29,8 +29,7 @@ setup(name='bnBackupOrchestrator',
       test_suite='nose.collector',
       tests_require=['nose'],
       entry_points={
-          'console_scripts': ['bn-run-backup=BackupOrchestrator.scripts.run_backup:main',
-                              ],
+          'console_scripts': ['bn-run-backup=backup_orchestrator.scripts.run_backup:main'],
       },
       include_package_data=True,
       zip_safe=True
