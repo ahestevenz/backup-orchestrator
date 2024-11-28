@@ -1,10 +1,10 @@
-# Backup Module System
+# Backup Orchestrator
 
-**bn-backup-module** is a python package which makes backups based on modules written in a JSON file. 
+**bn-backup-orchestrator** is a python package which makes backups based on modules written in a YAML file.
 
-## bnBackupModule
+## BackupOrchestrator
 
-Python class that sync directories and files specified in a JSON file. This class uses methods based on RSYNC command with several arguments.
+Python class that sync directories and files specified in a YAML file. This class uses methods based on RSYNC command with several arguments.
 
 
 ## Installation
@@ -29,7 +29,7 @@ source /usr/local/bin/virtualenvwrapper.sh
 After editing it, reload the startup file (e.g., run `source ~/.bashrc`) and create a python environment:
 
 ```
-$ mkvirtualenv venv_py 
+$ mkvirtualenv venv_py
 $ workon venv_py
 ```
 
@@ -37,8 +37,8 @@ $ workon venv_py
 
 Once the python environment was configured, run the following procedure to install all the required packages
 ```setup
-(venv_py)$ git clone https://github.com/ahestevenz/backup-module
-(venv_py)$ cd backup-module
+(venv_py)$ git clone https://github.com/ahestevenz/backup-orchestrator.git
+(venv_py)$ cd backup-orchestrator
 (venv_py)$ pip install .
 ```
 
@@ -47,53 +47,54 @@ Once the python environment was configured, run the following procedure to insta
 ![](./assets/run-bn-backup.gif)
 
 ```run
-(venv_py39) ahestevenz@galactica:~/dev/backup-module(dev⚡) » bn-run-backup -h                                 
-usage: bn-run-backup [-h] [-j JSON_FILE] [-d BACKUP_DIRECTORY] [-v] [-p output.prof]
+> bn-run-backup -h
+usage: bn-run-backup [-h] [-j YAML_FILE] [-v] [-p output.prof]
 
-Welcome to the Backup Module Management
+Welcome to the Backup Orchestrator Management
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
-  -j JSON_FILE, --json_file JSON_FILE
-                        JSON file with backup set points (default: "/Users/ahestevenz/.userfiles/conf/backup.json")
-  -d BACKUP_DIRECTORY, --backup_directory BACKUP_DIRECTORY
-                        Destination directory (default: "/Volumes/Datensicherung/Datensicherung/")
-  -v, --verbose         Increase logging output (default: INFO)(can be specified several times)
+  -j YAML_FILE, --yaml_file YAML_FILE
+                        YAML file with backup set points (default: "/Users/ahestevenz/.userfiles/conf/backup.yaml")
+  -v, --verbose         Increase logging output (default: INFO) (can be specified several times)
   -p output.prof, --profile output.prof
                         Run with profiling and store output in given file
 ```
 
-The command *bn-run-backup* uses two arguments to backup your system:
-* The JSON configuration file
-* The path to the **backup directory**
+The command *bn-run-backup* uses only one argument to backup your system:
+* The YAML configuration file
 
-The JSON file specifies the modules which will be syncronized, and it must be written with the format described below.
+The YAML file specifies the modules which will be syncronized, and it must be written with the format described below.
+```
+settings:
+  backup_directory: "/path/to/backup"
+  verify_backup: false
 
-    {
-        "dir1-ahe" : {
-        "src_path"  : "/Users/ahestevenz/dir1",
-        "user"  : "ahestevenz",
-        "host"  : "galactica",
-        "os" : "darwin"
-        },
-        "dir2-ahe" : {
-        "src_path"  : "/Users/ahestevenz/dir2",   
-        "user"  : "ahestevenz",
-        "host"  : "galactica",
-        "os" : "darwin"
-        },
-        "dir3-ahe" : {
-        "src_path"  : "/home/ahestevenz/dir3", 
-        "user"  : "ahestevenz",
-        "host"  : "columbia",
-        "os" : "linux"
-        }
-    }
+modules:
+  dir1-ahe:
+    src_path: "/Users/ahestevenz/dir1"
+    user: "ahestevenz"
+    host: "galactica"
+    os: "darwin"
 
-Finally, only need to run (as an example):
-```run
-(venv_py39) ahestevenz@galactica:~/dev/backup-module(dev⚡) »bn-run-backup -j /Users/ahestevenz/.userfiles/conf/backup_test.json -d ~/temp
+  dir2-ahe:
+    src_path: "/Users/ahestevenz/dir2"
+    user: "ahestevenz"
+    host: "galactica"
+    os: "darwin"
+
+  dir3-ahe:
+    src_path: "/home/ahestevenz/dir3"
+    user: "ahestevenz"
+    host: "columbia"
+    os: "linux"
 ```
 
-## TODO List 
+Finally, only need to run (as an example):
+
+```run
+~/De/t/1/backup-orchestrator on release/r1 !1 ?1 > bn-run-backup  -j /Users/ahestevenz/.userfiles/conf/backup_test.yml
+```
+
+## TODO List
 - [x] Add Docker container option
