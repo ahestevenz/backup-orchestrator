@@ -52,21 +52,19 @@ class BackupOrchestrator(BaseModel):
 
     def model_post_init(self, __context: Any) -> None:
         """Perform additional initialization and validation after parsing."""
+        logging.info("## Welcome to the Backup System Management ##")
         self._load_backup_info()
         if not self.backup_directory.exists():
             try:
                 self.backup_directory.mkdir(parents=True, exist_ok=True)
-                logging.info(
-                    f"Directory {self.backup_directory} created successfully."
-                )
             except Exception as e:
                 raise NotADirectoryError(
                     f"Cannot create the directory {self.backup_directory}. "
                     "Please check permissions and verify the directory path."
                 ) from e
 
-        logging.info("## Welcome to the Backup System Management ##")
-
+        logging.info(
+            f"## The directory {self.backup_directory} has been successfully configured.")
         self.executor = CommandExecutor(
             log_level=self.config.log_level, verify_backup=self.verify_backup)
         self.get_logs_path().mkdir(parents=True, exist_ok=True)
