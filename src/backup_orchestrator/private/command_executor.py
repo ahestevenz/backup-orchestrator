@@ -38,7 +38,7 @@ class CommandExecutor(BaseModel):
         "INFO", description="Logging level for the executor.")
     verify_backup: bool = Field(
         False, description="Activate checksum verification in the rsync command.")
-    partial: bool = Field(
+    resume_backup: bool = Field(
         False, description="If enabled, rsync keeps the incomplete file at the destination, \
         so when you rerun the command, it can resume from where it left off instead of starting from zero.")
 
@@ -66,7 +66,7 @@ class CommandExecutor(BaseModel):
             logging.warning(
                 "Backup verification is enabled; the current backup process may take longer than usual.")
             extra_args += " --checksum "
-        if self.partial:
+        if self.resume_backup:
             extra_args += " --partial "
         return f"rsync --archive --compress --log-file={log_file} --info=progress2 --delete {extra_args} {src}/ {dst}/"
 
