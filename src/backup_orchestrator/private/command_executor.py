@@ -63,7 +63,7 @@ class CommandExecutor(BaseModel):
             logging.warning(
                 "Backup verification is enabled; the current backup process may take longer than usual.")
             extra_args += "--checksum"
-        return f"rsync --archive --compress --log-file={log_file} --info=progress2 --delete {extra_args} {src} {dst}"
+        return f"rsync --archive --compress --log-file={log_file} --info=progress2 --delete {extra_args} {src}/ {dst}/"
 
     def execute_command(self, command: str):
         """Execute a shell command and handle errors."""
