@@ -13,6 +13,7 @@ from backup_orchestrator.private.command_executor import CommandExecutor, RsyncE
 
 class HostInfo(BaseModel):
     """Represents information about a host for backup."""
+
     user: str
     host: str
     os: str
@@ -27,46 +28,46 @@ class BackupConfig(BaseModel):
     def validate_loglevel(cls, v):
         valid_levels = ["INFO", "DEBUG", "TRACE"]
         if v not in valid_levels:
-            raise ValueError(
-                f"Invalid log_level: {v}. Choose from {valid_levels}")
+            raise ValueError(f"Invalid log_level: {v}. Choose from {valid_levels}")
         return v
 
 
 class BackupModules(BaseModel):
     """Represents the backup configuration from a YAML file."""
+
     modules: Dict[str, HostInfo] = Field(default_factory=dict)
 
 
 class BackupOrchestrator(BaseModel):
     """Pydantic-powered BackupOrchestrator class."""
+
     config: BackupConfig
     yaml_info: Dict[str, BackupModules] = Field(default_factory=dict)
     host_list: List = Field(default_factory=list)
     report: Dict[str, List[str]] = Field(
-        default_factory=lambda: {"successful": [],
-                                 "failed": [], "unreachable_hosts": []}
+        default_factory=lambda: {
+            "successful": [],
+            "failed": [],
+            "unreachable_hosts": [],
+        }
     )
     executor: CommandExecutor = Field(default=None, exclude=True)
     backup_directory: Path = Field(default=None)
     verify_backup: bool = Field(default=False)
+    resume_backup: bool = Field(default=False)
 
     def model_post_init(self, __context: Any) -> None:
         """Perform additional initialization and validation after parsing."""
         logging.info("## Welcome to the Backup System Management ##")
-        self._load_backup_info()
-        if not self.backup_directory.exists():
-            try:
-                self.backup_directory.mkdir(parents=True, exist_ok=True)
-            except Exception as e:
-                raise NotADirectoryError(
-                    f"Cannot create the directory {self.backup_directory}. "
-                    "Please check permissions and verify the directory path."
-                ) from e
-
+        self._load_config_and_backup_info()
         logging.info(
-            f"## The directory {self.backup_directory} has been successfully configured.")
+            f"## The directory {self.backup_directory} has been successfully configured."
+        )
         self.executor = CommandExecutor(
-            log_level=self.config.log_level, verify_backup=self.verify_backup)
+            log_level=self.config.log_level,
+            verify_backup=self.verify_backup,
+            resume_backup=self.resume_backup,
+        )
         self.get_logs_path().mkdir(parents=True, exist_ok=True)
 
     def get_current_backup_path(self) -> Path:
@@ -86,10 +87,40 @@ class BackupOrchestrator(BaseModel):
         value = settings.get(key)
         if value is None:
             raise ValueError(
-                f"The '{key}' field is required in the 'settings' section of the configuration file.")
+                f"The '{key}' field is required in the 'settings' section of the configuration file."
+            )
         return value
 
-    def _load_backup_info(self):
+    def _create_backup_directory(self) -> None:
+        if not self.backup_directory.exists():
+            try:
+                self.backup_directory.mkdir(parents=True, exist_ok=True)
+            except Exception as e:
+                raise NotADirectoryError(
+                    f"Cannot create the directory {self.backup_directory}. "
+                    "Please check permissions and verify the directory path."
+                ) from e
+
+    def _retrieve_previous_backup_info(self, current_yaml_file: Path) -> None:
+        previous_config_file = self.get_current_backup_path() / current_yaml_file.name
+        if previous_config_file.exists():
+            with previous_config_file.open() as f:
+                try:
+                    previous_config_data = yaml.safe_load(f)
+                    self.yaml_info["previous"] = BackupModules(
+                        modules=previous_config_data.get("modules", {})
+                    )
+                except ValidationError as e:
+                    logging.error(
+                        f"Invalid backup configuration in {previous_config_file}: {e}"
+                    )
+                    raise
+        else:
+            logging.warning(
+                "No previous backup found; skipping the copy of backup-related files."
+            )
+
+    def _load_config_and_backup_info(self) -> None:
         """Load and validate backup configuration from YAML files."""
         logging.debug("#### Loading YAML file information.")
 
@@ -100,8 +131,10 @@ class BackupOrchestrator(BaseModel):
                     config_data = yaml.safe_load(f)
                     settings = config_data.get("settings", {})
                     self.backup_directory = Path(
-                        self._get_required_setting(settings, "backup_directory"))
+                        self._get_required_setting(settings, "backup_directory")
+                    )
                     self.verify_backup = settings.get("verify_backup", False)
+                    self.resume_backup = settings.get("resume_backup", False)
 
                     # Validate and assign modules
                     modules = config_data.get("modules", {})
@@ -109,27 +142,14 @@ class BackupOrchestrator(BaseModel):
 
                 except ValidationError as e:
                     logging.error(
-                        f"Invalid backup configuration in {current_yaml_file}: {e}")
+                        f"Invalid backup configuration in {current_yaml_file}: {e}"
+                    )
                     raise
         else:
-            logging.warning(
-                "No current YAML file found. Initializing empty modules.")
+            logging.warning("No current YAML file found. Initializing empty modules.")
             self.yaml_info["current"] = BackupModules()
-
-        previous_config_file = self.get_current_backup_path() / current_yaml_file.name
-        if previous_config_file.exists():
-            with previous_config_file.open() as f:
-                try:
-                    previous_config_data = yaml.safe_load(f)
-                    self.yaml_info["previous"] = BackupModules(
-                        modules=previous_config_data.get("modules", {}))
-                except ValidationError as e:
-                    logging.error(
-                        f"Invalid backup configuration in {previous_config_file}: {e}")
-                    raise
-        else:
-            logging.warning(
-                "No previous backup found; skipping the copy of backup-related files.")
+        self._create_backup_directory()
+        self._retrieve_previous_backup_info(current_yaml_file=current_yaml_file)
 
     def _prepare_directory(self, path: Path):
         """Ensure a directory exists."""
@@ -140,10 +160,14 @@ class BackupOrchestrator(BaseModel):
         previous_backup_path = self.get_previous_backup_path()
         current_backup_path = self.get_current_backup_path()
 
-        if "previous" in self.yaml_info and self.yaml_info["previous"].modules != self.yaml_info["current"].modules:
+        if (
+            "previous" in self.yaml_info
+            and self.yaml_info["previous"].modules != self.yaml_info["current"].modules
+        ):
             self._prepare_directory(previous_backup_path)
-            missing_modules = set(
-                self.yaml_info["previous"].modules) - set(self.yaml_info["current"].modules)
+            missing_modules = set(self.yaml_info["previous"].modules) - set(
+                self.yaml_info["current"].modules
+            )
             for module in missing_modules:
                 logging.warning(f"## Moving missing module: {module}")
                 src_dir = current_backup_path / module
@@ -153,14 +177,14 @@ class BackupOrchestrator(BaseModel):
                 if src_dir.exists():
                     shutil.move(src_dir, dst_dir)
             shutil.copy(self.config.yaml_file, previous_backup_path)
-            shutil.copy(
-                current_backup_path / "backup_report.log", previous_backup_path)
+            shutil.copy(current_backup_path / "backup_report.log", previous_backup_path)
 
     def _backup_host_configuration(self, host_info: HostInfo):
         """Backup configuration files and home directory for a specific host."""
         home_dir = "home" if host_info.os == "linux" else "Users"
-        host_path = self.get_current_backup_path(
-        ) / f"{host_info.user}-{host_info.host}"
+        host_path = (
+            self.get_current_backup_path() / f"{host_info.user}-{host_info.host}"
+        )
         self._prepare_directory(host_path)
         try:
             # Backup /etc configuration files
@@ -169,8 +193,8 @@ class BackupOrchestrator(BaseModel):
                 cmd = self.executor.get_rsync_command(
                     src=f"{host_info.user}@{host_info.host}:/etc/{file}",
                     dst=host_path / "hosts",
-                    log_file=self.get_logs_path(
-                    ) / f"rsync-output-conf-hosts-{host_info.user}.txt",
+                    log_file=self.get_logs_path()
+                    / f"rsync-output-conf-hosts-{host_info.user}.txt",
                 )
                 self.executor.execute_command(cmd)
 
@@ -180,16 +204,14 @@ class BackupOrchestrator(BaseModel):
             cmd = self.executor.get_rsync_command(
                 src=f"{host_info.user}@{host_info.host}:/{home_dir}/{host_info.user}/.[^.]*",
                 dst=home_conf_path,
-                log_file=self.get_logs_path(
-                ) / f"rsync-output-conf-{host_info.user}.txt",
-                extra_args="--exclude '.Trash' --exclude '.cache'",
+                log_file=self.get_logs_path()
+                / f"rsync-output-conf-{host_info.user}.txt",
+                extra_args=["--exclude", ".Trash", "--exclude", ".cache"],
             )
             self.executor.execute_command(cmd)
         except RsyncError as e:
-            logging.error(
-                f"## Host: {host_info.host} has the following error: \n {e}.")
-            self.report["unreachable_hosts"].append(
-                f" Host {host_info.host}: \n {e}")
+            logging.error(f"## Host: {host_info.host} has the following error: \n {e}.")
+            self.report["unreachable_hosts"].append(f" Host {host_info.host}: \n {e}")
 
     def _write_report(self):
         """Write the current backup report to a log file."""
@@ -197,7 +219,7 @@ class BackupOrchestrator(BaseModel):
         date_format = "%Y%m%d-%H%M%S"
         date_info = datetime.datetime.now().strftime(date_format)
         logging.debug(f"#### Backup date written: {date_info}")
-        with report_file.open('w') as f:
+        with report_file.open("w") as f:
             f.write("Backup Report\n")
             f.write("====================\n\n")
             f.write("\n")
@@ -226,26 +248,26 @@ class BackupOrchestrator(BaseModel):
                 cmd = self.executor.get_rsync_command(
                     src=f"{host_info.user}@{host_info.host}:{host_info.src_path}",
                     dst=self.get_current_backup_path() / module_name,
-                    log_file=self.get_logs_path(
-                    ) / f"rsync-output-{module_name}.txt",
+                    log_file=self.get_logs_path() / f"rsync-output-{module_name}.txt",
                 )
                 self.executor.execute_command(cmd)
                 self.report["successful"].append(
-                    f" {module_name}: {host_info.src_path}")
-                logging.success(
-                    f"## Backup completed for module: {module_name}")
+                    f" {module_name}: {host_info.src_path}"
+                )
+                logging.success(f"## Backup completed for module: {module_name}")
             except RsyncError as e:
                 logging.error(
-                    f"## Module: {module_name}, {host_info.src_path} has the following error: \n {e}.")
-                self.report["failed"].append(
-                    f" {module_name}: {host_info.src_path}")
+                    f"## Module: {module_name}, {host_info.src_path} has the following error: \n {e}."
+                )
+                self.report["failed"].append(f" {module_name}: {host_info.src_path}")
 
         if save_conf:
             unique_hosts = {f"{h.user}@{h.host}" for h in self.host_list}
             for host in unique_hosts:
                 logging.info(f"## Starting backup for host: {host}")
                 host_info = next(
-                    h for h in self.host_list if f"{h.user}@{h.host}" == host)
+                    h for h in self.host_list if f"{h.user}@{h.host}" == host
+                )
                 self._backup_host_configuration(host_info)
 
         shutil.copy(self.config.yaml_file, self.get_current_backup_path())
