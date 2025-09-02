@@ -83,8 +83,8 @@ class CommandExecutor(BaseModel):
             "--info=progress2",
             "--delete",
             *extra_args,
-            f"{src}/",
-            f" {dst}/",
+            src,
+            dst.as_posix(),
         ]
 
     def execute_command(self, command: list[str]):
@@ -97,6 +97,7 @@ class CommandExecutor(BaseModel):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
+                shell=False,
                 bufsize=1,
             )
             if process.stdout:
