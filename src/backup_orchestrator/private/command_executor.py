@@ -61,13 +61,13 @@ class CommandExecutor(BaseModel):
     def get_rsync_command(self, src: str, dst: Path, log_file: Path, extra_args: str = "") -> str:
         """Construct the rsync command."""
         if self.log_level == "DEBUG":
-            extra_args += " --stats"
+            extra_args += " --stats "
         if self.verify_backup:
             logging.warning(
                 "Backup verification is enabled; the current backup process may take longer than usual.")
-            extra_args += "--checksum"
+            extra_args += " --checksum "
         if self.partial:
-            extra_args += "--partial"
+            extra_args += " --partial "
         return f"rsync --archive --compress --log-file={log_file} --info=progress2 --delete {extra_args} {src}/ {dst}/"
 
     def execute_command(self, command: str):
