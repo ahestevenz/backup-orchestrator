@@ -17,11 +17,6 @@ repos:
       -   id: name-tests-test
       -   id: trailing-whitespace
 
-  - repo: https://github.com/hhatto/autopep8
-    rev: v2.3.1
-    hooks:
-      - id: autopep8
-
   - repo: https://github.com/PyCQA/flake8
     rev: 7.1.1
     hooks:
@@ -40,3 +35,9 @@ repos:
     hooks:
       - id: isort
         args: ["--profile=black"]
+
+  - repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 24.8.0
+    hooks:
+      - id: black
+        language_version: python3

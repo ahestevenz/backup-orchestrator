@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 
 class RsyncErrorModel(BaseModel):
     """Model to structure and validate Rsync error details."""
+
     message: str = Field(..., description="A brief error message.")
     return_code: int = Field(..., description="Exit code from rsync.")
     output: str = Field(..., description="Detailed error output from rsync.")
@@ -34,13 +35,15 @@ class RsyncError(Exception):
 class CommandExecutor(BaseModel):
     """Utility class to execute shell commands with real-time progress."""
 
-    log_level: str = Field(
-        "INFO", description="Logging level for the executor.")
+    log_level: str = Field("INFO", description="Logging level for the executor.")
     verify_backup: bool = Field(
-        False, description="Activate checksum verification in the rsync command.")
+        False, description="Activate checksum verification in the rsync command."
+    )
     resume_backup: bool = Field(
-        False, description="If enabled, incomplete files are kept at the destination, \
-        allowing the command to be resumed from where it left off instead of starting from zero.")
+        False,
+        description="If enabled, incomplete files are kept at the destination, \
+        allowing the command to be resumed from where it left off instead of starting from zero.",
+    )
 
     @field_validator("log_level")
     @classmethod
@@ -49,7 +52,8 @@ class CommandExecutor(BaseModel):
         valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
         if value.upper() not in valid_levels:
             raise ValueError(
-                f"Invalid log_level: {value}. Valid options are: {valid_levels}")
+                f"Invalid log_level: {value}. Valid options are: {valid_levels}"
+            )
         return value.upper()
 
     def _configure_logging(self):
@@ -58,19 +62,32 @@ class CommandExecutor(BaseModel):
         logging.basicConfig(level=numeric_level)
         logging.debug(f"Logging level set to {self.log_level}")
 
-    def get_rsync_command(self, src: str, dst: Path, log_file: Path, extra_args: str = "") -> str:
+    def get_rsync_command(
+        self, src: str, dst: Path, log_file: Path, extra_args: list[str] = []
+    ) -> list[str]:
         """Construct the rsync command."""
         if self.log_level == "DEBUG":
-            extra_args += " --stats "
+            extra_args.append("--stats")
         if self.verify_backup:
             logging.warning(
-                "Backup verification is enabled; the current backup process may take longer than usual.")
-            extra_args += " --checksum "
+                "Backup verification is enabled; the current backup process may take longer than usual."
+            )
+            extra_args.append("--checksum ")
         if self.resume_backup:
-            extra_args += " --partial "
-        return f"rsync --archive --compress --log-file={log_file} --info=progress2 --delete {extra_args} {src}/ {dst}/"
+            extra_args.append(" --partial ")
+        return [
+            "rsync",
+            "--archive",
+            "--compress",
+            f"--log-file={log_file}",
+            "--info=progress2",
+            "--delete",
+            *extra_args,
+            f"{src}/",
+            f" {dst}/",
+        ]
 
-    def execute_command(self, command: str):
+    def execute_command(self, command: list[str]):
         """Execute a shell command and handle errors."""
         self._configure_logging()
         logging.debug(f"#### Executing command: {command}")
@@ -79,7 +96,6 @@ class CommandExecutor(BaseModel):
                 command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                shell=True,
                 text=True,
                 bufsize=1,
             )
@@ -93,14 +109,18 @@ class CommandExecutor(BaseModel):
 
             if process.returncode != 0:
                 stderr_output = process.stderr.read() if process.stderr else ""
-                raise RsyncError({
-                    "message": "Command execution failed",
-                    "return_code": process.returncode,
-                    "output": stderr_output.strip(),
-                })
+                raise RsyncError(
+                    {
+                        "message": "Command execution failed",
+                        "return_code": process.returncode,
+                        "output": stderr_output.strip(),
+                    }
+                )
         except subprocess.SubprocessError as e:
-            raise RsyncError({
-                "message": "Subprocess execution failed",
-                "return_code": -1,
-                "output": str(e),
-            }) from e
+            raise RsyncError(
+                {
+                    "message": "Subprocess execution failed",
+                    "return_code": -1,
+                    "output": str(e),
+                }
+            ) from e
