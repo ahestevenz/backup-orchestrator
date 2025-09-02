@@ -39,8 +39,8 @@ class CommandExecutor(BaseModel):
     verify_backup: bool = Field(
         False, description="Activate checksum verification in the rsync command.")
     resume_backup: bool = Field(
-        False, description="If enabled, rsync keeps the incomplete file at the destination, \
-        so when you rerun the command, it can resume from where it left off instead of starting from zero.")
+        False, description="If enabled, incomplete files are kept at the destination, \
+        allowing the command to be resumed from where it left off instead of starting from zero.")
 
     @field_validator("log_level")
     @classmethod

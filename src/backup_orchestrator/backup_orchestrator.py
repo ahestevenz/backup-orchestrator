@@ -54,20 +54,13 @@ class BackupOrchestrator(BaseModel):
     def model_post_init(self, __context: Any) -> None:
         """Perform additional initialization and validation after parsing."""
         logging.info("## Welcome to the Backup System Management ##")
-        self._load_backup_info()
-        if not self.backup_directory.exists():
-            try:
-                self.backup_directory.mkdir(parents=True, exist_ok=True)
-            except Exception as e:
-                raise NotADirectoryError(
-                    f"Cannot create the directory {self.backup_directory}. "
-                    "Please check permissions and verify the directory path."
-                ) from e
-
+        self._load_config_and_backup_info()
         logging.info(
             f"## The directory {self.backup_directory} has been successfully configured.")
         self.executor = CommandExecutor(
-            log_level=self.config.log_level, verify_backup=self.verify_backup, resume_backup=self.resume_backup)
+            log_level=self.config.log_level,
+            verify_backup=self.verify_backup,
+            resume_backup=self.resume_backup)
         self.get_logs_path().mkdir(parents=True, exist_ok=True)
 
     def get_current_backup_path(self) -> Path:
@@ -90,7 +83,33 @@ class BackupOrchestrator(BaseModel):
                 f"The '{key}' field is required in the 'settings' section of the configuration file.")
         return value
 
-    def _load_backup_info(self):
+    def _create_backup_directory(self) -> None:
+        if not self.backup_directory.exists():
+            try:
+                self.backup_directory.mkdir(parents=True, exist_ok=True)
+            except Exception as e:
+                raise NotADirectoryError(
+                    f"Cannot create the directory {self.backup_directory}. "
+                    "Please check permissions and verify the directory path."
+                ) from e
+
+    def _retrieve_previous_backup_info(self, current_yaml_file: Path) -> None:
+        previous_config_file = self.get_current_backup_path() / current_yaml_file.name
+        if previous_config_file.exists():
+            with previous_config_file.open() as f:
+                try:
+                    previous_config_data = yaml.safe_load(f)
+                    self.yaml_info["previous"] = BackupModules(
+                        modules=previous_config_data.get("modules", {}))
+                except ValidationError as e:
+                    logging.error(
+                        f"Invalid backup configuration in {previous_config_file}: {e}")
+                    raise
+        else:
+            logging.warning(
+                "No previous backup found; skipping the copy of backup-related files.")
+
+    def _load_config_and_backup_info(self) -> None:
         """Load and validate backup configuration from YAML files."""
         logging.debug("#### Loading YAML file information.")
 
@@ -117,21 +136,9 @@ class BackupOrchestrator(BaseModel):
             logging.warning(
                 "No current YAML file found. Initializing empty modules.")
             self.yaml_info["current"] = BackupModules()
-
-        previous_config_file = self.get_current_backup_path() / current_yaml_file.name
-        if previous_config_file.exists():
-            with previous_config_file.open() as f:
-                try:
-                    previous_config_data = yaml.safe_load(f)
-                    self.yaml_info["previous"] = BackupModules(
-                        modules=previous_config_data.get("modules", {}))
-                except ValidationError as e:
-                    logging.error(
-                        f"Invalid backup configuration in {previous_config_file}: {e}")
-                    raise
-        else:
-            logging.warning(
-                "No previous backup found; skipping the copy of backup-related files.")
+        self._create_backup_directory()
+        self._retrieve_previous_backup_info(
+            current_yaml_file=current_yaml_file)
 
     def _prepare_directory(self, path: Path):
         """Ensure a directory exists."""
