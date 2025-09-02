@@ -49,6 +49,7 @@ class BackupOrchestrator(BaseModel):
     executor: CommandExecutor = Field(default=None, exclude=True)
     backup_directory: Path = Field(default=None)
     verify_backup: bool = Field(default=False)
+    partial: bool = Field(default=False)
 
     def model_post_init(self, __context: Any) -> None:
         """Perform additional initialization and validation after parsing."""
@@ -66,7 +67,7 @@ class BackupOrchestrator(BaseModel):
         logging.info(
             f"## The directory {self.backup_directory} has been successfully configured.")
         self.executor = CommandExecutor(
-            log_level=self.config.log_level, verify_backup=self.verify_backup)
+            log_level=self.config.log_level, verify_backup=self.verify_backup, partial=self.partial)
         self.get_logs_path().mkdir(parents=True, exist_ok=True)
 
     def get_current_backup_path(self) -> Path:
@@ -102,6 +103,7 @@ class BackupOrchestrator(BaseModel):
                     self.backup_directory = Path(
                         self._get_required_setting(settings, "backup_directory"))
                     self.verify_backup = settings.get("verify_backup", False)
+                    self.partial = settings.get("partial", False)
 
                     # Validate and assign modules
                     modules = config_data.get("modules", {})
