@@ -105,6 +105,7 @@ class BackupOrchestrator(BaseModel):
     backup_directory: Path = Field(default=None)
     verify_backup: bool = Field(default=False)
     resume_backup: bool = Field(default=False)
+    dry_run: bool = Field(default=False)
 
     def model_post_init(self, __context: Any) -> None:
         """Perform additional initialization and validation after parsing."""
@@ -187,6 +188,7 @@ class BackupOrchestrator(BaseModel):
                     )
                     self.verify_backup = settings.get("verify_backup", False)
                     self.resume_backup = settings.get("resume_backup", False)
+                    self.dry_run = settings.get("dry_run", False)
 
                     # Validate and assign modules
                     modules = config_data.get("modules", {})

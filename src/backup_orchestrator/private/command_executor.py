@@ -66,8 +66,14 @@ class CommandExecutor(BaseModel):
     )
     resume_backup: bool = Field(
         False,
-        description="If enabled, incomplete files are kept at the destination, \
-        allowing the command to be resumed from where it left off instead of starting from zero.",
+        description="If enabled, incomplete files are kept at the destination, "
+        "allowing the command to be resumed from where it left off instead"
+        "of starting from zero.",
+    )
+    dry_run: bool = Field(
+        False,
+        description="If True, simulate the backup operations without making any changes "
+        "or writing files. Useful for testing or validating the backup process.",
     )
 
     @field_validator("log_level")
@@ -100,9 +106,11 @@ class CommandExecutor(BaseModel):
                 "Backup verification is enabled; the current backup process \
                     may take longer than usual."
             )
-            extra_args.append("--checksum ")
+            extra_args.append("--checksum")
         if self.resume_backup:
-            extra_args.append(" --partial ")
+            extra_args.append("--partial")
+        if self.dry_run:
+            extra_args.append("--dry-run")
         return [
             "rsync",
             "--archive",
