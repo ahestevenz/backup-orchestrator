@@ -1,4 +1,31 @@
 # -*- coding: utf-8 -*-
+"""
+backup_orchestrator.py
+
+Provides a Pydantic-powered system to orchestrate backups of hosts and modules
+using rsync, with structured logging, validation, and error handling.
+
+This module defines:
+
+Classes:
+    HostInfo: Represents information about a host to be backed up.
+    BackupConfig: Configuration model for backup operations, including logging.
+    BackupModules: Represents the backup configuration from a YAML file.
+    BackupOrchestrator: Coordinates backup operations for hosts and modules,
+        handling:
+        - Construction and execution of rsync commands
+        - Backup of configuration files and home directories
+        - Management of current and previous backups
+        - Logging and reporting of successful, failed, and unreachable hosts
+
+Features:
+    - Validates configuration and log levels using Pydantic.
+    - Supports resumable backups and optional verification with checksums.
+    - Maintains backup reports and logs for auditing purposes.
+    - Handles subprocess errors via the RsyncError exception.
+"""
+
+
 import datetime
 import shutil
 from pathlib import Path
@@ -21,11 +48,34 @@ class HostInfo(BaseModel):
 
 
 class BackupConfig(BaseModel):
+    """
+    Configuration model for backup operations.
+
+    Attributes:
+        yaml_file (Path): Path to the YAML configuration file.
+        log_level (str): Logging level for backup operations.
+            Must be one of "INFO", "DEBUG", or "TRACE".
+            Defaults to "INFO".
+    """
+
     yaml_file: Path
     log_level: str = Field(default="INFO")
 
     @field_validator("log_level")
-    def validate_loglevel(cls, v):
+    @classmethod
+    def validate_loglevel(cls, v: str) -> str:
+        """
+        Validate that the log_level value is one of the allowed levels.
+
+        Args:
+            v (str): The log level to validate.
+
+        Returns:
+            str: The validated log level.
+
+        Raises:
+            ValueError: If `v` is not one of "INFO", "DEBUG", or "TRACE".
+        """
         valid_levels = ["INFO", "DEBUG", "TRACE"]
         if v not in valid_levels:
             raise ValueError(f"Invalid log_level: {v}. Choose from {valid_levels}")
@@ -82,12 +132,14 @@ class BackupOrchestrator(BaseModel):
         """Returns the path to the logs directory."""
         return self.backup_directory / "logs"
 
+    # pylint: disable=no-self-use
     def _get_required_setting(self, settings: dict, key: str) -> str:
         """Fetch a required setting or raise an error if it is missing."""
         value = settings.get(key)
         if value is None:
             raise ValueError(
-                f"The '{key}' field is required in the 'settings' section of the configuration file."
+                f"The '{key}' field is required in the 'settings' section of \
+                the configuration file."
             )
         return value
 
@@ -151,11 +203,11 @@ class BackupOrchestrator(BaseModel):
         self._create_backup_directory()
         self._retrieve_previous_backup_info(current_yaml_file=current_yaml_file)
 
-    def _prepare_directory(self, path: Path):
+    def _prepare_directory(self, path: Path) -> None:  # pylint: disable=no-self-use
         """Ensure a directory exists."""
         path.mkdir(parents=True, exist_ok=True)
 
-    def _move_missing_modules(self):
+    def _move_missing_modules(self) -> None:
         """Identify and move missing modules from current to previous backup."""
         previous_backup_path = self.get_previous_backup_path()
         current_backup_path = self.get_current_backup_path()
@@ -179,7 +231,7 @@ class BackupOrchestrator(BaseModel):
             shutil.copy(self.config.yaml_file, previous_backup_path)
             shutil.copy(current_backup_path / "backup_report.log", previous_backup_path)
 
-    def _backup_host_configuration(self, host_info: HostInfo):
+    def _backup_host_configuration(self, host_info: HostInfo) -> None:
         """Backup configuration files and home directory for a specific host."""
         home_dir = "home" if host_info.os == "linux" else "Users"
         host_path = (
@@ -213,7 +265,7 @@ class BackupOrchestrator(BaseModel):
             logging.error(f"## Host: {host_info.host} has the following error: \n {e}.")
             self.report["unreachable_hosts"].append(f" Host {host_info.host}: \n {e}")
 
-    def _write_report(self):
+    def _write_report(self) -> None:
         """Write the current backup report to a log file."""
         report_file = self.get_current_backup_path() / "backup_report.log"
         date_format = "%Y%m%d-%H%M%S"
@@ -235,7 +287,7 @@ class BackupOrchestrator(BaseModel):
             f.write("\n")
             f.write(f"# Date: {date_info}")
 
-    def rsync_modules(self, save_conf: bool = True):
+    def rsync_modules(self, save_conf: bool = True) -> None:
         """Perform backup of all modules."""
         self._move_missing_modules()
         self._prepare_directory(self.get_current_backup_path())
@@ -257,7 +309,8 @@ class BackupOrchestrator(BaseModel):
                 logging.success(f"## Backup completed for module: {module_name}")
             except RsyncError as e:
                 logging.error(
-                    f"## Module: {module_name}, {host_info.src_path} has the following error: \n {e}."
+                    f"## Module: {module_name}, {host_info.src_path} has \
+                        the following error: \n {e}."
                 )
                 self.report["failed"].append(f" {module_name}: {host_info.src_path}")
 
