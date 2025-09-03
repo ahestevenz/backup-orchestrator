@@ -1,15 +1,30 @@
 # -*- coding: utf-8 -*-
+"""
+setup.py
+
+Setup script for the backup-orchestrator package.
+
+Defines package metadata, dependencies, entry points, and test configuration
+for building, distributing, and installing the backup-orchestrator Python package.
+"""
+
 from setuptools import find_packages, setup
 
 
 def readme():
-    with open("README.md") as f:
+    """
+    Read the contents of README.md to use as the long description.
+
+    Returns:
+        str: The contents of README.md.
+    """
+    with open("README.md", encoding="utf-8") as f:
         return f.read()
 
 
 setup(
     name="backup-orchestrator",
-    version="1.0.1",
+    version="1.0.2",
     description="Backup based on RSYNC command",
     packages=find_packages("src"),
     package_dir={"": "src"},
