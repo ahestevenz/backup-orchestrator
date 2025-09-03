@@ -24,6 +24,7 @@ Features:
 
 
 import logging
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -126,7 +127,8 @@ class CommandExecutor(BaseModel):
     def execute_command(self, command: list[str]) -> None:
         """Execute a shell command and handle errors."""
         self._configure_logging()
-        logging.debug("#### Executing command: %s", command)
+        logging.debug("#### Executing command: %s", shlex.join(command))
+
         try:
             # pylint: disable=consider-using-with
             process = subprocess.Popen(
