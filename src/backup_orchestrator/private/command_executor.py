@@ -1,5 +1,30 @@
 # -*- coding: utf-8 -*-
+"""
+command_executor.py
+
+Provides utilities for executing shell commands with structured error handling,
+logging, and support for rsync-based backup operations.
+
+This module defines:
+
+Classes:
+    RsyncErrorModel: Pydantic model for structured and validated rsync error details.
+    RsyncError: Custom exception wrapping RsyncErrorModel for consistent error reporting.
+    CommandExecutor: Executes shell commands (especially rsync) with options for:
+        - Configurable logging
+        - Optional backup verification using checksum
+        - Resumable backups
+        - Real-time progress display
+
+Features:
+    - Validates configuration and logging levels using Pydantic models.
+    - Constructs safe, configurable rsync commands.
+    - Handles subprocess execution errors and reports them via RsyncError.
+"""
+
+
 import logging
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -21,8 +46,9 @@ class RsyncError(Exception):
     def __init__(self, error_data: dict):
         try:
             self.error_details = RsyncErrorModel(**error_data)
+            super().__init__(f"Rsync error: {self.error_details}")
         except ValidationError as e:
-            raise ValueError(f"Invalid RsyncError data: {e}")
+            raise ValueError(f"Invalid RsyncError data: {e}") from e
 
     def __str__(self):
         return (
@@ -41,13 +67,19 @@ class CommandExecutor(BaseModel):
     )
     resume_backup: bool = Field(
         False,
-        description="If enabled, incomplete files are kept at the destination, \
-        allowing the command to be resumed from where it left off instead of starting from zero.",
+        description="If enabled, incomplete files are kept at the destination, "
+        "allowing the command to be resumed from where it left off instead"
+        "of starting from zero.",
+    )
+    dry_run: bool = Field(
+        False,
+        description="If True, simulate the backup operations without making any changes "
+        "or writing files. Useful for testing or validating the backup process.",
     )
 
     @field_validator("log_level")
     @classmethod
-    def validate_log_level(cls, value):
+    def validate_log_level(cls, value) -> str:
         """Ensure log_level is valid."""
         valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
         if value.upper() not in valid_levels:
@@ -56,25 +88,30 @@ class CommandExecutor(BaseModel):
             )
         return value.upper()
 
-    def _configure_logging(self):
+    def _configure_logging(self) -> None:
         """Configure logging based on the validated log level."""
         numeric_level = getattr(logging, self.log_level, logging.INFO)
         logging.basicConfig(level=numeric_level)
-        logging.debug(f"Logging level set to {self.log_level}")
+        logging.debug("Logging level set to %s", self.log_level)
 
     def get_rsync_command(
-        self, src: str, dst: Path, log_file: Path, extra_args: list[str] = []
+        self, src: str, dst: Path, log_file: Path, extra_args: list[str] | None = None
     ) -> list[str]:
         """Construct the rsync command."""
+        if not extra_args:
+            extra_args = []
         if self.log_level == "DEBUG":
             extra_args.append("--stats")
         if self.verify_backup:
             logging.warning(
-                "Backup verification is enabled; the current backup process may take longer than usual."
+                "Backup verification is enabled; the current backup process \
+                    may take longer than usual."
             )
-            extra_args.append("--checksum ")
+            extra_args.append("--checksum")
         if self.resume_backup:
-            extra_args.append(" --partial ")
+            extra_args.append("--partial")
+        if self.dry_run:
+            extra_args.append("--dry-run")
         return [
             "rsync",
             "--archive",
@@ -87,11 +124,13 @@ class CommandExecutor(BaseModel):
             dst.as_posix(),
         ]
 
-    def execute_command(self, command: list[str]):
+    def execute_command(self, command: list[str]) -> None:
         """Execute a shell command and handle errors."""
         self._configure_logging()
-        logging.debug(f"#### Executing command: {command}")
+        logging.debug("#### Executing command: %s", shlex.join(command))
+
         try:
+            # pylint: disable=consider-using-with
             process = subprocess.Popen(
                 command,
                 stdout=subprocess.PIPE,

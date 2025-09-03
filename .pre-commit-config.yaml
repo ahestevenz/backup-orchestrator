@@ -41,3 +41,9 @@ repos:
     hooks:
       - id: black
         language_version: python3
+
+  - repo: https://github.com/PyCQA/pylint
+    rev: v2.13.0  # latest stable release
+    hooks:
+      - id: pylint
+        language_version: python3
