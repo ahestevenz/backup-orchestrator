@@ -39,7 +39,14 @@ setup(
     author="Ariel Hernandez <ahestevenz@bleiben.ar>",
     author_email="ahestevenz@bleiben.ar",
     license="Proprietary",
-    install_requires=["numpy", "pexpect", "pytest-shutil", "loguru", "pyyaml"],
+    install_requires=[
+        "numpy",
+        "pexpect",
+        "pytest-shutil",
+        "loguru",
+        "pyyaml",
+        "pydantic",
+    ],
     test_suite="nose.collector",
     tests_require=["nose"],
     entry_points={

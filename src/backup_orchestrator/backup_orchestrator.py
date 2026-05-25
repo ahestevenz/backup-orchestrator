@@ -246,7 +246,7 @@ class BackupOrchestrator(BaseModel):
             for file in etc_files:
                 cmd = self.executor.get_rsync_command(
                     src=f"{host_info.user}@{host_info.host}:/etc/{file}",
-                    dst=host_path / "hosts",
+                    dst=host_path / file,
                     log_file=self.get_logs_path()
                     / f"rsync-output-conf-hosts-{host_info.user}.txt",
                 )
