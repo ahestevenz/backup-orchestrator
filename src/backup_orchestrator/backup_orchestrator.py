@@ -118,7 +118,13 @@ class BackupOrchestrator(BaseModel):
             log_level=self.config.log_level,
             verify_backup=self.verify_backup,
             resume_backup=self.resume_backup,
+            dry_run=self.dry_run,
         )
+        if self.dry_run:
+            logging.warning(
+                "## DRY RUN: rsync will only report what it would do; "
+                "no backup data, configuration or report will be changed."
+            )
         self.get_logs_path().mkdir(parents=True, exist_ok=True)
 
     def get_current_backup_path(self) -> Path:
@@ -218,10 +224,14 @@ class BackupOrchestrator(BaseModel):
             "previous" in self.yaml_info
             and self.yaml_info["previous"].modules != self.yaml_info["current"].modules
         ):
-            self._prepare_directory(previous_backup_path)
             missing_modules = set(self.yaml_info["previous"].modules) - set(
                 self.yaml_info["current"].modules
             )
+            if self.dry_run:
+                for module in missing_modules:
+                    logging.warning(f"## DRY RUN: would move missing module: {module}")
+                return
+            self._prepare_directory(previous_backup_path)
             for module in missing_modules:
                 logging.warning(f"## Moving missing module: {module}")
                 src_dir = current_backup_path / module
@@ -233,39 +243,59 @@ class BackupOrchestrator(BaseModel):
             shutil.copy(self.config.yaml_file, previous_backup_path)
             shutil.copy(current_backup_path / "backup_report.log", previous_backup_path)
 
+    def _run_job(self, job_name: str, cmd: list[str]) -> str | None:
+        """Run one rsync job, never letting its failure stop the others.
+
+        Returns None on success, or a short failure reason for the report.
+        """
+        try:
+            self.executor.execute_command(cmd)
+            return None
+        except RsyncError as e:
+            logging.error(f"## {job_name} failed:\n{e}")
+            return e.summary
+        except Exception as e:  # pylint: disable=broad-except
+            # Unexpected errors (I/O, decoding, ...) are logged with a traceback
+            # and the run carries on with the next job.
+            logging.opt(exception=e).error(
+                f"## {job_name} failed with an unexpected error: {e!r}"
+            )
+            return f"unexpected error: {e!r}"
+
     def _backup_host_configuration(self, host_info: HostInfo) -> None:
-        """Backup configuration files and home directory for a specific host."""
+        """Backup configuration files and home directory for a specific host.
+
+        Each step runs independently, so one failure does not skip the rest.
+        """
         home_dir = "home" if host_info.os == "linux" else "Users"
         host_path = (
             self.get_current_backup_path() / f"{host_info.user}-{host_info.host}"
         )
-        self._prepare_directory(host_path)
-        try:
-            # Backup /etc configuration files
-            etc_files = ["motd", "hosts"]
-            for file in etc_files:
-                cmd = self.executor.get_rsync_command(
-                    src=f"{host_info.user}@{host_info.host}:/etc/{file}",
-                    dst=host_path / file,
-                    log_file=self.get_logs_path()
-                    / f"rsync-output-conf-hosts-{host_info.user}.txt",
-                )
-                self.executor.execute_command(cmd)
+        home_conf_path = host_path / host_info.user
+        self._prepare_directory(home_conf_path)
 
-            # Backup home directory
-            home_conf_path = host_path / host_info.user
-            self._prepare_directory(home_conf_path)
-            cmd = self.executor.get_rsync_command(
-                src=f"{host_info.user}@{host_info.host}:/{home_dir}/{host_info.user}/.[^.]*",
-                dst=home_conf_path,
+        jobs = {
+            f"/etc/{file}": self.executor.get_rsync_command(
+                src=f"{host_info.user}@{host_info.host}:/etc/{file}",
+                dst=host_path / file,
                 log_file=self.get_logs_path()
-                / f"rsync-output-conf-{host_info.user}.txt",
-                extra_args=["--exclude", ".Trash", "--exclude", ".cache"],
+                / f"rsync-output-conf-hosts-{host_info.user}.txt",
             )
-            self.executor.execute_command(cmd)
-        except RsyncError as e:
-            logging.error(f"## Host: {host_info.host} has the following error: \n {e}.")
-            self.report["unreachable_hosts"].append(f" Host {host_info.host}: \n {e}")
+            for file in ["motd", "hosts"]
+        }
+        jobs["dotfiles"] = self.executor.get_rsync_command(
+            src=f"{host_info.user}@{host_info.host}:/{home_dir}/{host_info.user}/.[^.]*",
+            dst=home_conf_path,
+            log_file=self.get_logs_path() / f"rsync-output-conf-{host_info.user}.txt",
+            extra_args=["--exclude", ".Trash", "--exclude", ".cache"],
+        )
+
+        for step, cmd in jobs.items():
+            reason = self._run_job(f"Host {host_info.host} ({step})", cmd)
+            if reason:
+                self.report["unreachable_hosts"].append(
+                    f" Host {host_info.host} ({step}): {reason}"
+                )
 
     def _write_report(self) -> None:
         """Write the current backup report to a log file."""
@@ -289,41 +319,77 @@ class BackupOrchestrator(BaseModel):
             f.write("\n")
             f.write(f"# Date: {date_info}")
 
+    def has_failures(self) -> bool:
+        """True if any module or host job failed."""
+        return bool(self.report["failed"] or self.report["unreachable_hosts"])
+
     def rsync_modules(self, save_conf: bool = True) -> None:
-        """Perform backup of all modules."""
+        """Perform backup of all modules.
+
+        A failing module or host is recorded in the report and the run moves on
+        to the next one; the report is always written at the end.
+        """
         self._move_missing_modules()
         self._prepare_directory(self.get_current_backup_path())
 
-        for module_name, host_info in self.yaml_info["current"].modules.items():
-            logging.info(f"## Starting backup for module: {module_name}")
-            self.host_list.append(host_info)
+        try:
+            if save_conf:
+                # Host config runs first. Build the host list from the YAML
+                # (not self.host_list, which is only filled by the module loop
+                # below): one entry per user@host, in YAML order.
+                hosts: Dict[str, HostInfo] = {}
+                for h in self.yaml_info["current"].modules.values():
+                    hosts.setdefault(f"{h.user}@{h.host}", h)
+                for host, host_info in hosts.items():
+                    logging.info(f"## Starting backup for host: {host}")
+                    self._backup_host_configuration(host_info)
 
-            try:
+            for module_name, host_info in self.yaml_info["current"].modules.items():
+                logging.info(f"## Starting backup for module: {module_name}")
+                self.host_list.append(host_info)
+
                 cmd = self.executor.get_rsync_command(
                     src=f"{host_info.user}@{host_info.host}:{host_info.src_path}",
                     dst=self.get_current_backup_path() / module_name,
                     log_file=self.get_logs_path() / f"rsync-output-{module_name}.txt",
                 )
-                self.executor.execute_command(cmd)
-                self.report["successful"].append(
-                    f" {module_name}: {host_info.src_path}"
+                reason = self._run_job(
+                    f"Module {module_name} ({host_info.src_path})", cmd
                 )
-                logging.success(f"## Backup completed for module: {module_name}")
-            except RsyncError as e:
-                logging.error(
-                    f"## Module: {module_name}, {host_info.src_path} has \
-                        the following error: \n {e}."
-                )
-                self.report["failed"].append(f" {module_name}: {host_info.src_path}")
+                if reason:
+                    self.report["failed"].append(
+                        f" {module_name}: {host_info.src_path} ({reason})"
+                    )
+                else:
+                    self.report["successful"].append(
+                        f" {module_name}: {host_info.src_path}"
+                    )
+                    logging.success(f"## Backup completed for module: {module_name}")
+        finally:
+            if self.dry_run:
+                # Keep the stored config/report intact: the next real run uses
+                # current/<config>.yml to detect removed modules.
+                logging.info("## DRY RUN: backup config and report left untouched.")
+            else:
+                # Always leave a report behind, even if the run was interrupted.
+                shutil.copy(self.config.yaml_file, self.get_current_backup_path())
+                self._write_report()
 
-        if save_conf:
-            unique_hosts = {f"{h.user}@{h.host}" for h in self.host_list}
-            for host in unique_hosts:
-                logging.info(f"## Starting backup for host: {host}")
-                host_info = next(
-                    h for h in self.host_list if f"{h.user}@{h.host}" == host
-                )
-                self._backup_host_configuration(host_info)
+        self._log_summary()
 
-        shutil.copy(self.config.yaml_file, self.get_current_backup_path())
-        self._write_report()
+    def _log_summary(self) -> None:
+        """Log a short end-of-run summary."""
+        ok = len(self.report["successful"])
+        failed = self.report["failed"] + self.report["unreachable_hosts"]
+        if not failed:
+            logging.success(f"## All {ok} module(s) backed up successfully.")
+            return
+        logging.warning(
+            f"## Backup finished with {len(failed)} failure(s), {ok} module(s) OK:"
+        )
+        for item in failed:
+            logging.warning(f"##  -{item}")
+        if not self.dry_run:
+            logging.warning(
+                f"## Details: {self.get_current_backup_path() / 'backup_report.log'}"
+            )
