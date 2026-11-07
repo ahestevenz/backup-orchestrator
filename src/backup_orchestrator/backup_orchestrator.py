@@ -118,7 +118,13 @@ class BackupOrchestrator(BaseModel):
             log_level=self.config.log_level,
             verify_backup=self.verify_backup,
             resume_backup=self.resume_backup,
+            dry_run=self.dry_run,
         )
+        if self.dry_run:
+            logging.warning(
+                "## DRY RUN: rsync will only report what it would do; "
+                "no backup data, configuration or report will be changed."
+            )
         self.get_logs_path().mkdir(parents=True, exist_ok=True)
 
     def get_current_backup_path(self) -> Path:
@@ -218,10 +224,14 @@ class BackupOrchestrator(BaseModel):
             "previous" in self.yaml_info
             and self.yaml_info["previous"].modules != self.yaml_info["current"].modules
         ):
-            self._prepare_directory(previous_backup_path)
             missing_modules = set(self.yaml_info["previous"].modules) - set(
                 self.yaml_info["current"].modules
             )
+            if self.dry_run:
+                for module in missing_modules:
+                    logging.warning(f"## DRY RUN: would move missing module: {module}")
+                return
+            self._prepare_directory(previous_backup_path)
             for module in missing_modules:
                 logging.warning(f"## Moving missing module: {module}")
                 src_dir = current_backup_path / module
@@ -354,9 +364,14 @@ class BackupOrchestrator(BaseModel):
                     )
                     self._backup_host_configuration(host_info)
         finally:
-            # Always leave a report behind, even if the run was interrupted.
-            shutil.copy(self.config.yaml_file, self.get_current_backup_path())
-            self._write_report()
+            if self.dry_run:
+                # Keep the stored config/report intact: the next real run uses
+                # current/<config>.yml to detect removed modules.
+                logging.info("## DRY RUN: backup config and report left untouched.")
+            else:
+                # Always leave a report behind, even if the run was interrupted.
+                shutil.copy(self.config.yaml_file, self.get_current_backup_path())
+                self._write_report()
 
         self._log_summary()
 
@@ -372,6 +387,7 @@ class BackupOrchestrator(BaseModel):
         )
         for item in failed:
             logging.warning(f"##  -{item}")
-        logging.warning(
-            f"## Details: {self.get_current_backup_path() / 'backup_report.log'}"
-        )
+        if not self.dry_run:
+            logging.warning(
+                f"## Details: {self.get_current_backup_path() / 'backup_report.log'}"
+            )
