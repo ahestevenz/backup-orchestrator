@@ -23,7 +23,8 @@ def _main(config: BackupConfig):
     """
     disksync = BackupOrchestrator(config=config)
     disksync.rsync_modules(save_conf=True)
-    return 0
+    # Non-zero exit when any job failed, so cron/launchd can notice.
+    return 1 if disksync.has_failures() else 0
 
 
 def main():
@@ -76,10 +77,10 @@ def main():
         logging.info("Done profiling")
     else:
         logging.info("Running without profiling")
-        _main(config)
+        return _main(config)
 
     return 0
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())
