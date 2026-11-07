@@ -110,3 +110,6 @@ notMNIST*
 *.tar.gz
 model_*
 checkpoint
+
+# Editor settings
+.vscode/
