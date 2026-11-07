@@ -333,6 +333,17 @@ class BackupOrchestrator(BaseModel):
         self._prepare_directory(self.get_current_backup_path())
 
         try:
+            if save_conf:
+                # Host config runs first. Build the host list from the YAML
+                # (not self.host_list, which is only filled by the module loop
+                # below): one entry per user@host, in YAML order.
+                hosts: Dict[str, HostInfo] = {}
+                for h in self.yaml_info["current"].modules.values():
+                    hosts.setdefault(f"{h.user}@{h.host}", h)
+                for host, host_info in hosts.items():
+                    logging.info(f"## Starting backup for host: {host}")
+                    self._backup_host_configuration(host_info)
+
             for module_name, host_info in self.yaml_info["current"].modules.items():
                 logging.info(f"## Starting backup for module: {module_name}")
                 self.host_list.append(host_info)
@@ -354,15 +365,6 @@ class BackupOrchestrator(BaseModel):
                         f" {module_name}: {host_info.src_path}"
                     )
                     logging.success(f"## Backup completed for module: {module_name}")
-
-            if save_conf:
-                unique_hosts = {f"{h.user}@{h.host}" for h in self.host_list}
-                for host in unique_hosts:
-                    logging.info(f"## Starting backup for host: {host}")
-                    host_info = next(
-                        h for h in self.host_list if f"{h.user}@{h.host}" == host
-                    )
-                    self._backup_host_configuration(host_info)
         finally:
             if self.dry_run:
                 # Keep the stored config/report intact: the next real run uses
