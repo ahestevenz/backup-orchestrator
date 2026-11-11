@@ -38,7 +38,7 @@ setup(
     url="https://github.com/ahestevenz/backup-orchestrator",
     author="Ariel Hernandez <ahestevenz@bleiben.ar>",
     author_email="ahestevenz@bleiben.ar",
-    license="Proprietary",
+    license="PolyForm-Noncommercial-1.0.0",
     python_requires=">=3.10",
     install_requires=[
         "loguru",

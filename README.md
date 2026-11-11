@@ -96,5 +96,13 @@ Finally, only need to run (as an example):
 ~/De/t/1/backup-orchestrator on release/r1 !1 ?1 > bn-run-backup  -j /Users/ahestevenz/.userfiles/conf/backup_test.yml
 ```
 
+## License
+
+Free for personal and noncommercial use; photographers using it for paid work, contact bleiben — small earners get a free license.
+
+- [`LICENSE`](LICENSE): PolyForm Noncommercial License 1.0.0
+- [`LICENSING.md`](LICENSING.md): who may use it for free, and commercial licenses
+- [`TRADEMARKS.md`](TRADEMARKS.md): the bleiben name and logo
+
 ## TODO List
 - [x] Add Docker container option
