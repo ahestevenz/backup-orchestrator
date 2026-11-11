@@ -16,3 +16,5 @@ each and lists it here, so the owner can review every choice at the end.
 | Q8 | The `-e` value of §5.9 contains the macOS agent home, which has a space (`/Library/Application Support/…`). rsync splits `-e` on spaces. | Quote paths inside `-e` (rsync honours quotes there) | `agent/src/rsync.rs` |
 | Q9 | `ctl start` with no submitted job. | Refused with `no_job` | `agent/src/ctl/start.rs` |
 | Q10 | CLAUDE.md §2 lists `agent/packaging/macos/launchd.plist.tmpl`. | Not added: the agent renders the per-user plist itself (`platform/macos.rs`), so there is one source of truth, covered by a test | `agent/src/platform/macos.rs` |
+| Q11 | The Linux and macOS integration suites (CLAUDE.md §8) are the acceptance tests of Phases 3, 4 and 6, but need Docker or a CI runner, which this development machine does not have. | Written in Phase 6 and run only in GitHub Actions; until then Phases 3-4 rest on unit tests with fakes plus the agent end-to-end test | `tests/integration/` |
+| Q12 | `bn-backup server init` exit code when the final server checks are red. | 2 (like `status`), 0 when green | `server_init.py` |
