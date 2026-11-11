@@ -70,7 +70,7 @@ s14)
     touch -t 202001010000 "$f"
     step "plain --dry-run: expect NO line for Photos/s14.bin"
     push --dry-run "$SRC" "$DEST"
-    step "verify pass --checksum --dry-run: expect '>fc......... Photos/s14.bin' (c set, s and t '.')"
+    step "verify pass --checksum --dry-run: expect '<fc......... Photos/s14.bin' (c set, s and t '.')"
     push --checksum --dry-run "$SRC" "$DEST"
     echo
     echo "Now, on the Mac mini, this must still print AAAAAAAA (nothing was transferred):"

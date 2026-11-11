@@ -528,7 +528,8 @@ report 0. Exact stats are informational only.
 dry run and the module's transfer ended `ok`, and only for `path` modules: run
 the same command again with `--checksum --dry-run` added (and a separate log
 file `rsync-<module>-verify.log`). It transfers nothing. Every `--out-format`
-line whose itemize string starts with `>f` and has `c` as its 3rd character
+line whose itemize string starts with `<f` (a push marks sent files with `<`;
+accept `>f` too) and has `c` as its 3rd character
 while the 4th (`s`) and 5th (`t`) are `.` (0-based indexes 2, 3 and 4) names a
 file whose content differs
 although size and time match. Report them in the module result as
@@ -557,7 +558,9 @@ First match wins:
 
 `server_denied` means the *server* refused the write (on a Mac mini: "Allow
 full disk access for remote users" is off, or the drive is read-only). rsync 3
-tags each error line with the role that produced it; when no line carries a
+tags each error line with the role that produced it (rsync 3.4 capitalises the
+server-side roles, `[Receiver]`, so match without case; an `rrsync error:` line
+reporting a denial also counts); when no line carries a
 role tag, the `tcc` / `permission` rows apply and the server's hint (§6.13)
 names both possible causes.
 

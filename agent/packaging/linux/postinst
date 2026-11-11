@@ -1,0 +1,11 @@
+#!/bin/sh
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+# Copyright (c) 2018-2026 Ariel Hernandez (bleiben)
+set -e
+if [ "$1" = configure ]; then
+    install -d -m 0755 -o root -g root /var/lib/bn-backup-agent
+    if [ -d /run/systemd/system ]; then
+        systemctl daemon-reload || true
+    fi
+fi
+exit 0

@@ -1,0 +1,16 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: bn-backup-agent
+Upstream-Contact: https://www.bleiben.ar
+Source: https://github.com/bleiben-labs/backup-orchestrator
+
+Files: *
+Copyright: 2018-2026 Ariel Hernandez (bleiben)
+License: PolyForm-Noncommercial-1.0.0
+ Free for personal and noncommercial use; commercial use needs a license
+ from bleiben. The full license text is in
+ /usr/share/doc/bn-backup-agent/LICENSE and the plain-language policy in
+ /usr/share/doc/bn-backup-agent/LICENSING.md.
+ .
+ The agent binary statically includes Rust libraries under their own
+ licenses (MIT, Apache-2.0 and similar); see
+ /usr/share/doc/bn-backup-agent/THIRD_PARTY_NOTICES.md.

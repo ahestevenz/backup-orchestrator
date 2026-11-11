@@ -30,3 +30,45 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run mypy src
       - run: uv run pytest
+
+  agent:
+    name: agent (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: agent
+    steps:
+      - uses: actions/checkout@v7
+      - name: rsync 3 for the end-to-end tests (macOS ships openrsync)
+        if: runner.os == 'macOS'
+        run: brew install rsync
+      - run: rustup component add rustfmt clippy
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+
+  agent-deb:
+    name: agent .deb installs and answers ctl info (Debian 12)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - run: rustup target add x86_64-unknown-linux-musl
+      - run: cargo install cargo-deb --locked
+      - working-directory: agent
+        run: |
+          cargo build --release --target x86_64-unknown-linux-musl
+          cargo deb --no-build --target x86_64-unknown-linux-musl
+      - name: install in a Debian 12 container
+        run: |
+          docker run --rm -v "$PWD/agent/target/x86_64-unknown-linux-musl/debian:/pkg" debian:12 sh -ec '
+            apt-get update -qq
+            apt-get install -y -qq /pkg/*.deb
+            test -f /lib/systemd/system/bn-backup-agent@.service
+            test -f /usr/share/doc/bn-backup-agent/LICENSE
+            bn-backup-agent ctl info
+          '

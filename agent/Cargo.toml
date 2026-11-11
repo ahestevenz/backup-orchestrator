@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+# Copyright (c) 2018-2026 Ariel Hernandez (bleiben)
+
+[package]
+name = "bn-backup-agent"
+version = "2.0.0"
+edition = "2021"
+description = "bleiben Backup Orchestrator agent: runs backups as each user, started by launchd or systemd"
+license = "PolyForm-Noncommercial-1.0.0"
+repository = "https://github.com/bleiben-labs/backup-orchestrator"
+publish = false
+
+[[bin]]
+name = "bn-backup-agent"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0.104"
+clap = { version = "4.6.7", features = ["derive"] }
+libc = "0.2.191"
+nix = { version = "0.31.3", features = ["user", "signal", "process", "fs", "hostname"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+shell-words = "1.1.1"
+thiserror = "2.0.21"
+time = { version = "0.3.55", features = ["formatting", "macros"] }
+toml = "1.2.1"
+
+[dev-dependencies]
+tempfile = "3.27.0"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+
+# Debian package (cargo-deb), CLAUDE.md §7.
+[package.metadata.deb]
+name = "bn-backup-agent"
+maintainer = "bleiben <https://www.bleiben.ar>"
+copyright = "2018-2026, Ariel Hernandez (bleiben)"
+extended-description = """\
+The agent of bleiben Backup Orchestrator. The backup server asks it, over \
+SSH, to start backup jobs; systemd runs each job as the user who owns the \
+files, and the agent pushes them to the server with rsync."""
+depends = "rsync (>= 3.2.3), openssh-client, sudo"
+section = "admin"
+priority = "optional"
+maintainer-scripts = "packaging/linux/"
+assets = [
+    ["target/release/bn-backup-agent", "usr/bin/", "755"],
+    ["packaging/linux/bn-backup-agent@.service", "lib/systemd/system/", "644"],
+    ["../LICENSE", "usr/share/doc/bn-backup-agent/LICENSE", "644"],
+    ["../LICENSING.md", "usr/share/doc/bn-backup-agent/LICENSING.md", "644"],
+    ["../THIRD_PARTY_NOTICES.md", "usr/share/doc/bn-backup-agent/THIRD_PARTY_NOTICES.md", "644"],
+    ["packaging/linux/copyright", "usr/share/doc/bn-backup-agent/copyright", "644"],
+]

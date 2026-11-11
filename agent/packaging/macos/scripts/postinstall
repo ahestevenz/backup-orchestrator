@@ -1,0 +1,14 @@
+#!/bin/sh
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+# Copyright (c) 2018-2026 Ariel Hernandez (bleiben)
+#
+# After the package is installed: the command-line link and the agent home.
+# Nothing else; `ctl setup` does the rest (CLAUDE.md §7).
+set -e
+mkdir -p /usr/local/bin
+ln -sf /Applications/BNBackupAgent.app/Contents/MacOS/bn-backup-agent /usr/local/bin/bn-backup-agent
+AH="/Library/Application Support/BNBackupAgent"
+mkdir -p "$AH"
+chown root:wheel "$AH"
+chmod 0755 "$AH"
+exit 0

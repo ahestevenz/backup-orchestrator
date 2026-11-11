@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 # Copyright (c) 2018-2026 Ariel Hernandez (bleiben)
+# Vendored upstream files stay byte-for-byte as released.
+exclude: ^server/src/bn_backup/vendor/(rrsync|COPYING)$
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0

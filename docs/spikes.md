@@ -333,8 +333,8 @@ On the **source Mac**: `./push-test.sh s14`, then run the `cat` command it
 prints, on the Mac mini.
 
 **Pass when** the plain dry run lists nothing for `Photos/s14.bin`, the
-verify pass prints a line starting with `>fc` and with `.` in the 4th and 5th
-characters for it, and the file on the Mac mini still contains `AAAAAAAA`.
+verify pass prints a line starting with `<fc` (a push marks sent files with
+`<`) and with `.` in the 4th and 5th characters for it, and the file on the Mac mini still contains `AAAAAAAA`.
 
 **Result:** pending
 
