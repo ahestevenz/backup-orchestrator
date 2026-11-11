@@ -1,0 +1,22 @@
+settings:
+  backup_directory: "/path/to/backup"
+  verify_backup: false
+
+modules:
+  dir1-ahe:
+    src_path: "/Users/ahestevenz/dir1"
+    user: "ahestevenz"
+    host: "galactica"
+    os: "darwin"
+
+  dir2-ahe:
+    src_path: "/Users/ahestevenz/dir2"
+    user: "ahestevenz"
+    host: "galactica"
+    os: "darwin"
+
+  dir3-ahe:
+    src_path: "/home/ahestevenz/dir3"
+    user: "ahestevenz"
+    host: "columbia"
+    os: "linux"

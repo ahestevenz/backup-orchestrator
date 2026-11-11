@@ -1,5 +1,12 @@
 # Backup Orchestrator
 
+> **v2 in development.** This branch is being rebuilt as **bleiben Backup
+> Orchestrator v2**: a Python server (`bn-backup`, in `server/`) on a Mac mini
+> and a small Rust agent (`bn-backup-agent`, in `agent/`) on every computer,
+> so each user's files are read by that user and macOS privacy protection no
+> longer blocks the backup. The design is in [`docs/design.md`](docs/design.md).
+> The v1 instructions below describe the released version 1.0.4.
+
 **bn-backup-orchestrator** is a python package which makes backups based on modules written in a YAML file.
 
 ## BackupOrchestrator

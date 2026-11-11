@@ -1,49 +1,32 @@
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+# Copyright (c) 2018-2026 Ariel Hernandez (bleiben)
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
-      -   id: check-added-large-files
-      -   id: check-ast
-      -   id: check-case-conflict
-      -   id: check-docstring-first
-      -   id: check-json
-      -   id: check-merge-conflict
-      -   id: check-toml
-      -   id: check-xml
-      -   id: check-yaml
-      -   id: debug-statements
-      -   id: end-of-file-fixer
-      -   id: fix-encoding-pragma
-      -   id: name-tests-test
-      -   id: trailing-whitespace
+      - id: check-added-large-files
+      - id: check-case-conflict
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
 
-  - repo: https://github.com/PyCQA/flake8
-    rev: 7.1.1
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.4
     hooks:
-      - id: flake8
-        language_version: python3
-        args: ["--max-line-length=130"]
+      - id: ruff-check
+        files: ^server/
+      - id: ruff-format
+        args: [--check]
+        files: ^server/
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.11.2
+  - repo: local
     hooks:
-      - id: mypy
-        additional_dependencies: [types-pyyaml]
-
-  - repo: https://github.com/PyCQA/isort
-    rev: 5.13.2  # Use the latest stable version of isort
-    hooks:
-      - id: isort
-        args: ["--profile=black"]
-
-  - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 24.8.0
-    hooks:
-      - id: black
-        language_version: python3
-
-  - repo: https://github.com/PyCQA/pylint
-    rev: v2.13.0  # latest stable release
-    hooks:
-      - id: pylint
-        language_version: python3
+      - id: cargo-fmt
+        name: cargo fmt
+        entry: cargo fmt --manifest-path agent/Cargo.toml --check
+        language: system
+        files: ^agent/.*\.rs$
+        pass_filenames: false

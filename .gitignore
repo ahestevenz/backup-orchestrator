@@ -113,3 +113,11 @@ checkpoint
 
 # Editor settings
 .vscode/
+
+# v2
+.venv/
+target/
+.ruff_cache/
+.pytest_cache/
+*.pkg
+*.deb

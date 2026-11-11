@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+# Copyright (c) 2018-2026 Ariel Hernandez (bleiben)
+#
+# Phase 0 spike helper only. Not part of v2; delete after Phase 0.
+
+[package]
+name = "bnspike"
+version = "0.0.1"
+edition = "2021"
+license = "PolyForm-Noncommercial-1.0.0"
+publish = false
+
+[dependencies]
+
+[profile.release]
+strip = true

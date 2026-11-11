@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+# Copyright (c) 2018-2026 Ariel Hernandez (bleiben)
+#
+# Every job runs on Linux and macOS unless stated otherwise (D-53, CLAUDE.md §7).
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  server:
+    name: server (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - run: uv sync --python 3.11
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy src
+      - run: uv run pytest

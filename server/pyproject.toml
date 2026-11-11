@@ -1,0 +1,71 @@
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+# Copyright (c) 2018-2026 Ariel Hernandez (bleiben)
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bn-backup"
+version = "2.0.0"
+description = "bleiben Backup Orchestrator — local backups for photographers and home studios"
+requires-python = ">=3.11"
+license = "PolyForm-Noncommercial-1.0.0"
+# Symlinks to the files at the repository root.
+license-files = ["LICENSE", "LICENSING.md", "THIRD_PARTY_NOTICES.md"]
+authors = [{ name = "Ariel Hernandez (bleiben)" }]
+classifiers = [
+    "Environment :: Console",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: System :: Archiving :: Backup",
+]
+dependencies = [
+    "pydantic>=2,<3",
+    "pyyaml",
+    "loguru",
+    "ruamel.yaml",
+]
+
+[project.urls]
+Homepage = "https://github.com/bleiben-labs/backup-orchestrator"
+Repository = "https://github.com/bleiben-labs/backup-orchestrator"
+
+[project.scripts]
+bn-backup = "bn_backup.cli:main"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.13",
+    "pytest>=8",
+    "ruff>=0.8",
+    "types-PyYAML",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bn_backup"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003"]  # en dashes and arrows in user-facing text are intended
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["ruamel.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = [
+    "platform: needs real OS facilities (disk images, loopback filesystems)",
+]
