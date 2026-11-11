@@ -1,0 +1,5 @@
+#!/bin/sh
+# Test harness only: answer password prompts with $SSHPASS when it is set.
+name=$(basename "$0")
+if [ -n "${SSHPASS:-}" ]; then exec sshpass -e "/usr/bin/$name" "$@"; fi
+exec "/usr/bin/$name" "$@"

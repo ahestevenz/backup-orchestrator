@@ -30,24 +30,69 @@ package.
 
 | Package | License |
 | --- | --- |
+| annotated-types | MIT |
 | loguru | MIT |
 | pydantic | MIT |
-| PyYAML | MIT |
-| ruamel.yaml | MIT |
+| pydantic-core | MIT |
+| pyyaml | MIT |
+| ruamel-yaml | MIT |
+| typing-extensions | PSF-2.0 |
+| typing-inspection | MIT |
 
 ### Agent (Rust)
 
 | Crate | License |
 | --- | --- |
-| anyhow | MIT OR Apache-2.0 |
-| clap | MIT OR Apache-2.0 |
-| libc | MIT OR Apache-2.0 |
+| anstream | Apache-2.0 OR MIT |
+| anstyle | Apache-2.0 OR MIT |
+| anstyle-parse | Apache-2.0 OR MIT |
+| anstyle-query | Apache-2.0 OR MIT |
+| anstyle-wincon | Apache-2.0 OR MIT |
+| anyhow | Apache-2.0 OR MIT |
+| bitflags | Apache-2.0 OR MIT |
+| cfg-if | Apache-2.0 OR MIT |
+| clap | Apache-2.0 OR MIT |
+| clap_builder | Apache-2.0 OR MIT |
+| clap_derive | Apache-2.0 OR MIT |
+| clap_lex | Apache-2.0 OR MIT |
+| colorchoice | Apache-2.0 OR MIT |
+| deranged | Apache-2.0 OR MIT |
+| equivalent | Apache-2.0 OR MIT |
+| hashbrown | Apache-2.0 OR MIT |
+| heck | Apache-2.0 OR MIT |
+| indexmap | Apache-2.0 OR MIT |
+| is_terminal_polyfill | Apache-2.0 OR MIT |
+| itoa | Apache-2.0 OR MIT |
+| libc | Apache-2.0 OR MIT |
+| memchr | MIT OR Unlicense |
 | nix | MIT |
-| serde | MIT OR Apache-2.0 |
-| serde_json | MIT OR Apache-2.0 |
-| shell-words | MIT OR Apache-2.0 |
-| thiserror | MIT OR Apache-2.0 |
-| time | MIT OR Apache-2.0 |
-| toml | MIT OR Apache-2.0 |
+| num-conv | Apache-2.0 OR MIT |
+| once_cell_polyfill | Apache-2.0 OR MIT |
+| powerfmt | Apache-2.0 OR MIT |
+| proc-macro2 | Apache-2.0 OR MIT |
+| quote | Apache-2.0 OR MIT |
+| serde | Apache-2.0 OR MIT |
+| serde_core | Apache-2.0 OR MIT |
+| serde_derive | Apache-2.0 OR MIT |
+| serde_json | Apache-2.0 OR MIT |
+| serde_spanned | Apache-2.0 OR MIT |
+| shell-words | Apache-2.0 OR MIT |
+| strsim | MIT |
+| syn | Apache-2.0 OR MIT |
+| thiserror | Apache-2.0 OR MIT |
+| thiserror-impl | Apache-2.0 OR MIT |
+| time | Apache-2.0 OR MIT |
+| time-core | Apache-2.0 OR MIT |
+| time-macros | Apache-2.0 OR MIT |
+| toml | Apache-2.0 OR MIT |
+| toml_datetime | Apache-2.0 OR MIT |
+| toml_parser | Apache-2.0 OR MIT |
+| toml_writer | Apache-2.0 OR MIT |
+| unicode-ident | (Apache-2.0 OR MIT) AND Unicode-3.0 |
+| utf8parse | Apache-2.0 OR MIT |
+| windows-link | Apache-2.0 OR MIT |
+| windows-sys | Apache-2.0 OR MIT |
+| winnow | MIT |
+| zmij | MIT |
 
 <!-- END generated -->

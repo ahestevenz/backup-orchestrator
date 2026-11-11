@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+# Copyright (c) 2018-2026 Ariel Hernandez (bleiben)
+name: bn-backup-it
+
+x-host: &host
+  build:
+    context: .
+    dockerfile: host.Dockerfile
+  privileged: true
+  cgroup: host
+  tmpfs: [/run, /run/lock, /tmp]
+  volumes:
+    - /sys/fs/cgroup:/sys/fs/cgroup:rw
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server.Dockerfile
+    volumes:
+      - backup:/srv/backup
+      - ../../../dist:/dist:ro
+    networks:
+      lan:
+        aliases: [server.test.lan]
+  host1:
+    <<: *host
+    hostname: host1
+    networks:
+      lan:
+        aliases: [host1.test.lan]
+  host2:
+    <<: *host
+    hostname: host2
+    networks:
+      lan:
+        aliases: [host2.test.lan]
+
+volumes:
+  backup:
+
+networks:
+  lan:

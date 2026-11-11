@@ -37,6 +37,7 @@ codegen-units = 1
 # Debian package (cargo-deb), CLAUDE.md §7.
 [package.metadata.deb]
 name = "bn-backup-agent"
+revision = ""  # file name bn-backup-agent_<version>_<arch>.deb, as §7 requires
 maintainer = "bleiben <https://www.bleiben.ar>"
 copyright = "2018-2026, Ariel Hernandez (bleiben)"
 extended-description = """\

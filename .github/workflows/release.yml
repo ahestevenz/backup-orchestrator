@@ -1,0 +1,138 @@
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+# Copyright (c) 2018-2026 Ariel Hernandez (bleiben)
+#
+# Every release is built here from a version tag (D-29, CLAUDE.md §7):
+# the macOS .pkg (universal), the .deb for amd64 and arm64, the server wheel,
+# the exact rsync source tarball (D-44) and SHA256SUMS over all of them.
+# workflow_dispatch builds everything without publishing (for test runs).
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build (must match the files), for example 2.0.0"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: v
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then V="${GITHUB_REF_NAME#v}"; else V="${{ inputs.version }}"; fi
+          scripts/check-versions.sh "$V"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+  macos-pkg:
+    needs: version
+    runs-on: macos-14
+    env:
+      V: ${{ needs.version.outputs.version }}
+      MACOSX_DEPLOYMENT_TARGET: "13.0"
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      - name: rsync 3.4.1, universal (checksum pinned)
+        run: packaging/rsync/build-macos-universal.sh "$RUNNER_TEMP/rsync"
+      - name: agent, universal
+        working-directory: agent
+        run: |
+          cargo build --release --target aarch64-apple-darwin
+          cargo build --release --target x86_64-apple-darwin
+          lipo -create target/aarch64-apple-darwin/release/bn-backup-agent \
+                       target/x86_64-apple-darwin/release/bn-backup-agent \
+               -output "$RUNNER_TEMP/bn-backup-agent"
+          lipo -info "$RUNNER_TEMP/bn-backup-agent"
+      - name: package
+        run: |
+          mkdir -p dist
+          agent/packaging/macos/build-pkg.sh "$V" "$RUNNER_TEMP/bn-backup-agent" "$RUNNER_TEMP/rsync" dist
+          cp "$RUNNER_TEMP/rsync/rsync-$(cat packaging/rsync/VERSION).tar.gz" dist/
+      - uses: actions/upload-artifact@v7
+        with:
+          name: macos
+          path: dist/*
+
+  linux-deb:
+    needs: version
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            arch: amd64
+          - target: aarch64-unknown-linux-musl
+            arch: arm64
+    env:
+      V: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup target add ${{ matrix.target }}
+      - run: pip install ziglang && cargo install cargo-zigbuild cargo-deb --locked
+      - working-directory: agent
+        run: |
+          cargo zigbuild --release --target ${{ matrix.target }}
+          mkdir -p ../dist
+          cargo deb --no-build --target ${{ matrix.target }} \
+            --output "../dist/bn-backup-agent_${V}_${{ matrix.arch }}.deb"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: deb-${{ matrix.arch }}
+          path: dist/*
+
+  wheel:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - working-directory: server
+        run: uv build --wheel --out-dir ../dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wheel
+          path: dist/*
+
+  release:
+    needs: [version, macos-pkg, linux-deb, wheel]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      V: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - name: SHA256SUMS
+        working-directory: dist
+        run: |
+          ls -l
+          for f in "bn-backup-agent-$V.pkg" "bn-backup-agent_${V}_amd64.deb" \
+                   "bn-backup-agent_${V}_arm64.deb" "bn_backup-$V-py3-none-any.whl"; do
+            test -f "$f" || { echo "missing $f"; exit 1; }
+          done
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+      - name: publish
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v3
+        with:
+          name: bleiben Backup Orchestrator ${{ env.V }}
+          files: dist/*
+      - name: keep the build (test runs)
+        if: github.event_name != 'push'
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ env.V }}
+          path: dist/*

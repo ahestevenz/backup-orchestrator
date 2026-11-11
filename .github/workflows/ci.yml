@@ -25,11 +25,16 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
+      - name: Btrfs for the Linux platform tests
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y btrfs-progs
       - run: uv sync --python 3.11
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy src
       - run: uv run pytest
+        env:
+          BN_PLATFORM_SUDO: ${{ runner.os == 'Linux' && '1' || '' }}
 
   agent:
     name: agent (${{ matrix.os }})
@@ -72,3 +77,49 @@ jobs:
             test -f /usr/share/doc/bn-backup-agent/LICENSE
             bn-backup-agent ctl info
           '
+
+  licenses:
+    name: third-party licenses (allowed list, notices up to date)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - run: cargo install cargo-license --locked
+      - run: python3 scripts/third_party_notices.py --check
+
+  integration-linux:
+    name: integration (Linux, docker compose)
+    needs: [server, agent]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - run: rustup target add x86_64-unknown-linux-musl && cargo install cargo-deb --locked
+      - name: build the .deb and the wheel
+        run: |
+          mkdir -p dist
+          (cd agent && cargo build --release --target x86_64-unknown-linux-musl \
+            && cargo deb --no-build --target x86_64-unknown-linux-musl --output ../dist/bn-backup-agent_2.0.0_amd64.deb)
+          (cd server && uv build --wheel --out-dir ../dist)
+      - run: tests/integration/linux/run.sh
+
+  integration-macos:
+    name: integration (macOS runner)
+    needs: [server, agent]
+    runs-on: macos-14
+    # Full Disk Access needs SIP disabled on the runner; until that is confirmed
+    # this job reports but does not block (CLAUDE.md §8, docs/open-questions.md Q17).
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - name: build the .pkg (native architecture) and the wheel
+        run: |
+          mkdir -p dist
+          brew install rsync
+          packaging/rsync/build-macos-universal.sh "$RUNNER_TEMP/rsync"
+          (cd agent && cargo build --release)
+          agent/packaging/macos/build-pkg.sh 2.0.0 agent/target/release/bn-backup-agent "$RUNNER_TEMP/rsync" dist
+          (cd server && uv build --wheel --out-dir ../dist)
+      - run: BN_INTEGRATION_DISPOSABLE=1 tests/integration/macos/run.sh
