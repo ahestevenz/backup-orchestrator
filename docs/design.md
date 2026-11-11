@@ -4,7 +4,7 @@ Design approved 2026-11-10; D-55 to D-57 added 2026-11-11. The living version of
 
 ## 1. Overview
 
-**bleiben Backup Orchestrator** v2 is a local backup system built first for photographers. It backs up chosen folders from every Mac and Debian-based Linux computer at home onto one central server, a Mac mini with an external APFS drive. Each computer runs a small **agent** that reads its own users' files, so macOS privacy protection no longer blocks the backup. You control everything from your desk.
+**bleiben Backup Orchestrator** v2 is a local backup system built first for photographers. It backs up chosen folders from every Mac and Debian-based Linux computer at home onto one central server: an always-on Mac or Linux computer with an external drive. Each computer runs a small **agent** that reads its own users' files, so macOS privacy protection no longer blocks the backup. You control everything from your desk.
 
 This document explains the design in full for someone new to backup systems. Every term is explained in section 2 before it is used heavily. Section 18 lists every decision in one table, so an implementer can check nothing is left open.
 
@@ -63,11 +63,11 @@ This is not legal advice; the owner may want a lawyer to review `LICENSING.md` a
 
 | Item | Detail |
 | --- | --- |
-| Server | Mac mini, always on, external drive formatted APFS (Case-sensitive) |
+| Server | Any always-on Mac (macOS 13+) or Debian-based Linux computer, with an external drive: APFS (Case-sensitive) on a Mac, Btrfs or XFS on Linux |
 | Macs | Several; each has two admin accounts (you and your wife) and non-admin accounts (the kids) |
 | Linux hosts | Debian-based distributions |
 | Host names | Fully qualified names from a local DNS server you will run (for example `galactica.home.lan`) |
-| Not backed up | The Mac mini itself, for now. Docker containers on it may be added later |
+| Not backed up | The server itself, for now. Docker containers on it may be added later |
 
 ### The one manual step that cannot be removed
 
@@ -80,7 +80,7 @@ A backup is a second copy of your files, kept on a different device, so losing o
 ### Source, destination and module
 
 - **Source**: the computer and folder being copied, for example `/Users/sofia/Documents` on `athena`.
-- **Destination**: where the copy goes, here a folder on the Mac mini's external drive.
+- **Destination**: where the copy goes, here a folder on the server's external drive.
 - **Module**: one named source folder in the configuration, such as `sofia-documents`. Each module becomes one folder in the backup.
 
 ### Mirror versus snapshot
@@ -228,16 +228,16 @@ The server decides everything and the agents only execute. The server tells each
 
 | Component | Runs on | Language | Job |
 | --- | --- | --- | --- |
-| **Server** (`bn-backup`) | Mac mini, as your own admin account | Python 3.11+ | Reads the config, installs and checks agents, starts jobs, stages, promotes, reports, notifies |
+| **Server** (`bn-backup`) | The server, as your own admin account | Python 3.11+ | Reads the config, installs and checks agents, starts jobs, stages, promotes, reports, notifies |
 | **Agent** (`bn-backup-agent`) | Every source Mac and Linux host | Rust, one codebase | Runs rsync as one user, pushing to the server; answers probes |
 | **launchd / systemd** | Every source host | Built into the OS | Starts the agent as the right user, with the right privacy context |
-| **sshd + rrsync** | Mac mini | OpenSSH + rsync's `rrsync` script | Accepts pushes, locks each agent key to its own staging folder |
-| **Backup volume** | External drive on the Mac mini | APFS (Case-sensitive) | Holds `current/`, `removed/`, staging, state and snapshots |
+| **sshd + rrsync** | The server | OpenSSH + rsync's `rrsync` script | Accepts pushes, locks each agent key to its own staging folder |
+| **Backup volume** | External drive on the server | APFS (Case-sensitive) on a Mac; Btrfs or XFS on Linux | Holds `current/`, `removed/`, staging, state and snapshots |
 
 ### Two kinds of SSH connection
 
 1. **Control** (server → host). The server connects to each host's **admin account** (you or your wife) with its own key. On the host that key is locked: it can only run the agent's `ctl` commands, which a narrow sudoers rule allows without a password. It writes job files, starts jobs and reads results. No user data travels on this connection.
-2. **Data** (agent → server). The agent, running as the owning user, runs rsync over SSH to your account on the Mac mini. It uses a key generated for that one user on that one host. On the server, that key can only run `rrsync` into `.staging/<host>/<user>/`.
+2. **Data** (agent → server). The agent, running as the owning user, runs rsync over SSH to your account on the server. It uses a key generated for that one user on that one host. On the server, that key can only run `rrsync` into `.staging/<host>/<user>/`.
 
 ### One run, in brief
 
@@ -253,7 +253,7 @@ The diagram below shows which machine talks to which and as whom.
 
 ```mermaid
 flowchart TB
-  subgraph S["Mac mini · server"]
+  subgraph S["server · macOS or Linux"]
     A["bn-backup (Python)<br/>runs as your admin account"]
     B["sshd + rrsync<br/>push keys locked to .staging/host/user/"]
     C[("Backup volume<br/>APFS case-sensitive")]
@@ -275,7 +275,7 @@ flowchart TB
   LA == "data: rsync push as the user" ==> B
 ```
 
-Grey arrows are control: the server logs in as the admin account and asks launchd or systemd to start a job. Coloured arrows are data: each agent, running as the owning user, reads that user's files and pushes them into its own staging folder on the Mac mini.
+Grey arrows are control: the server logs in as the admin account and asks launchd or systemd to start a job. Coloured arrows are data: each agent, running as the owning user, reads that user's files and pushes them into its own staging folder on the server.
 
 ## 6. The agent
 
@@ -303,7 +303,7 @@ On macOS the program sits inside an app bundle so it appears as **BNBackupAgent*
 Inside the agent home:
 
 - `agent.toml`: server address and port, server account name, admin account name. Owned by root.
-- `server_known_hosts`: the Mac mini's SSH host key, pinned at setup so the agent only pushes to the real server.
+- `server_known_hosts`: the server's SSH host key, pinned at setup so the agent only pushes to the real server.
 - `users/<user>/job.json`: the current job, written by root, readable by the user.
 - `users/<user>/state/`: owned by the user, private (`700`). It holds that user's push key `id_ed25519`, `result.json` and rsync logs.
 
@@ -344,7 +344,7 @@ For each module, roughly:
 `rsync --archive --hard-links --delete --numeric-ids --xattrs -M--fake-super --timeout=600 --log-file=<state>/rsync-<module>.log -e "ssh -i <key> -o UserKnownHostsFile=<agent home>/server_known_hosts -o StrictHostKeyChecking=yes -p <port>" <src_path> <your account>@<server>:<module>/`
 
 - `<src_path>` has no trailing slash, exactly as in v1, so the folder itself lands inside the module: `/Users/sofia/Documents` becomes `current/sofia-documents/Documents/`. Keeping this means your v1 backup lines up file for file.
-- No `--compress`: on a home network it only slows down the Mac mini.
+- No `--compress`: on a home network it only slows down the server.
 - `-M--fake-super` tells the *server's* rsync to store each file's original owner, group and permissions in extended attributes. The server account is not root, so it cannot set real owners.
 - `--xattrs` keeps macOS metadata such as Finder tags. `--timeout` stops a transfer that makes no progress. `--partial` is added when `resume_backup` is on, and `--dry-run` for a dry run. With `verify_backup` on, a second, report-only pass compares file contents (section 8).
 - The destination path `<module>/` is relative to the folder `rrsync` locks the key into: `.staging/<host>/<user>/`.
@@ -355,14 +355,14 @@ The server is the Python program `bn-backup`, the successor of v1's `bn-run-back
 
 ### Which account runs the server
 
-The server runs as your own admin account on the Mac mini. There is no separate backup account.
+The server runs as your own admin account on the server. There is no separate backup account.
 
 - You install and run `bn-backup` as yourself. `sudo` is needed for one thing only: installing or removing the schedule.
-- Agents push to your account on the Mac mini. Their keys are locked to `rrsync`, so they cannot open a shell or read anything.
+- Agents push to your account on the server. Their keys are locked to `rrsync`, so they cannot open a shell or read anything.
 - The server's control key lives in your `~/.ssh/` as `bn-backup_ed25519`, separate from your personal keys.
 - The backup folder belongs to you, so you can open it in Finder and restore files directly.
 
-The price of this simplicity is less isolation: the backup is exactly as protected as your Mac mini account. Keep its password strong and FileVault on.
+The price of this simplicity is less isolation: the backup is exactly as protected as your account on the server. Keep its password strong and its disk encrypted (FileVault on a Mac).
 
 `bn-backup server init`, run once, creates the control key, a config template and the folder layout on the backup drive, adopts an existing v1 backup, and checks the drive (section 12).
 
@@ -370,7 +370,7 @@ The price of this simplicity is less isolation: the backup is exactly as protect
 
 | Command | What it does |
 | --- | --- |
-| `bn-backup server init` | One-time Mac mini setup (above) |
+| `bn-backup server init` | One-time server setup (above) |
 | `bn-backup server status [--json]` | Only the server rows of the board: drive, free space, rrsync, lock, config |
 | `bn-backup config validate` | Checks the config file and prints every problem found |
 | `bn-backup config migrate OLD.yml [-o NEW.yml]` | Detects the file's format version and converts it to the current one (today: v1 → v2) |
@@ -406,22 +406,22 @@ Commands are grouped by the thing they act on (`server`, `config`, `hosts`, `age
 
 ### Installing the server
 
-The server is a Python package released with every version. You install it in your own account on the Mac mini with `uv tool install`. The Mac mini also needs Homebrew's `rsync` 3.x and, for Signal, `signal-cli`. The `rrsync` script ships inside the server package and is pointed at Homebrew's rsync, because macOS's own `/usr/bin/rsync` is openrsync. On a Linux server it uses Debian's `/usr/bin/rsync`.
+The server is a Python package released with every version. You install it in your own account on the server with `uv tool install`. A Mac server also needs Homebrew's `rsync` 3.x and, for Signal, `signal-cli`. The `rrsync` script ships inside the server package and is pointed at Homebrew's rsync, because macOS's own `/usr/bin/rsync` is openrsync. On a Linux server it uses Debian's `/usr/bin/rsync`.
 
 ## 8. Configuration file
 
 The configuration stays a single YAML file, now in a v2 format with separate `server`, `settings`, `notifications`, `hosts` and `modules` sections. Hosts are described once and modules refer to them. The file is the only thing you edit by hand. Everything the server learns (OS, MAC addresses, installed agent version) is stored separately under `.state/`.
 
-Default location: `~/.config/bn-backup/config.yml` in your home folder on the Mac mini (mode `0600`), overridable with `-c PATH`. You edit it with any editor, and `bn-backup hosts add` can update it too. It holds no secrets: the email password lives in a separate file that `bn-backup notify set-smtp-password` writes for you.
+Default location: `~/.config/bn-backup/config.yml` in your home folder on the server (mode `0600`), overridable with `-c PATH`. You edit it with any editor, and `bn-backup hosts add` can update it too. It holds no secrets: the email password lives in a separate file that `bn-backup notify set-smtp-password` writes for you.
 
 ```yaml
 version: 2
 
 server:
   backup_directory: /Volumes/Backup/bn-backup   # on the APFS (Case-sensitive) drive
-  ssh_host: macmini.home.lan                    # how agents reach the server
+  ssh_host: server.home.lan                    # how agents reach the server
   ssh_port: 22
-  receive_user: ariel                           # your account on the Mac mini
+  receive_user: ariel                           # your account on the server
 
 settings:
   mode: snapshot             # mirror (default) | snapshot (recommended for photographers)
@@ -527,7 +527,7 @@ One command, `bn-backup hosts bootstrap`, sets up every host in the config that 
 
 ### Before you start (one time each)
 
-**On the Mac mini (server):**
+**On the server (a Mac):**
 
 1. Format the backup drive as **APFS (Case-sensitive)** and name it, for example `Backup`.
 2. Make sure the drive does not have *Ignore ownership on this volume* ticked (Finder → Get Info).
@@ -535,11 +535,13 @@ One command, `bn-backup hosts bootstrap`, sets up every host in the config that 
 4. Install Homebrew, then `brew install rsync signal-cli` and `uv`.
 5. Install the server in your own account (`uv tool install <wheel link from the GitHub release>`) and run `bn-backup server init`.
 
+**On a Linux server instead:** format the backup drive as Btrfs or XFS (clone support is required), `sudo apt install rsync openssh-server`, install `uv` (and `signal-cli` for Signal), then step 5.
+
 **On each source Mac:** turn on *Remote Login* and allow your admin account to use it. Nothing else.
 
 **On each Linux host:** make sure `openssh-server` is installed and running, and that your admin account can use `sudo`.
 
-**On your network:** the server must be able to resolve every host's `address`, and every host must resolve the Mac mini's `ssh_host`. A local DNS server or `.local` names both work. Macs resolve `.local` names out of the box; Debian-based hosts need the `avahi-daemon` and `libnss-mdns` packages for that.
+**On your network:** the server must be able to resolve every host's `address`, and every host must resolve the server's `ssh_host`. A local DNS server or `.local` names both work. Macs resolve `.local` names out of the box; Debian-based hosts need the `avahi-daemon` and `libnss-mdns` packages for that.
 
 ### What bootstrap does, per host
 
@@ -551,7 +553,7 @@ One command, `bn-backup hosts bootstrap`, sets up every host in the config that 
    - **Linux:** copy the `.deb` and run `sudo apt-get install -y ./bn-backup-agent_<version>_<arch>.deb`. You type the sudo password once.
    - **macOS:** copy the `.pkg` to `/Users/Shared/` and run `sudo installer -pkg … -target /`. You type the admin password once. The package stays in `/Users/Shared/` in case someone prefers to install it by hand.
 6. **Set up the agent:** `sudo bn-backup-agent ctl setup` with the server address, port and pinned host key, the admin account name and the server's control key. This installs the passwordless sudoers rule and adds the control key to the admin account in locked form: from now on that key can run the agent's `ctl` commands and nothing else.
-7. **Add each user:** through the control key, `ctl user-add <user>` creates the user's job and push key. The server adds that public key to your `authorized_keys` on the Mac mini, locked to `rrsync` and `.staging/<host>/<user>/`.
+7. **Add each user:** through the control key, `ctl user-add <user>` creates the user's job and push key. The server adds that public key to your `authorized_keys` on the server, locked to `rrsync` and `.staging/<host>/<user>/`.
 8. **macOS only, grant Full Disk Access.** The server opens *Privacy & Security → Full Disk Access* on that Mac's screen, if someone is logged in, and prints: *Go to athena and switch on BNBackupAgent*. An admin types their password there to approve. The server polls with probe jobs and continues as soon as the probe reports Full Disk Access granted.
 9. **Read the host's details** (`ctl info`): MAC addresses, rsync version, agent version.
 10. **Probe.** One probe job per user checks every module folder. The host ends green or red on the board.
@@ -571,7 +573,7 @@ A new *module* for a user who is already backed up needs nothing more. A new *us
 
 - **Stop backing something up:** delete it from the config. Its modules move to `removed/` at the next COMPLETE run. The agent stays installed.
 - **Remove a host completely:** delete it from the config, then run `bn-backup hosts remove HOST`. The host must be reachable: the server uninstalls the agent there (you type the admin password), then forgets its keys and record.
-- **Forget a host you can no longer reach** (sold, broken): `bn-backup hosts forget HOST`. It only cleans up the Mac mini's side.
+- **Forget a host you can no longer reach** (sold, broken): `bn-backup hosts forget HOST`. It only cleans up the server's side.
 
 ## 10. The status board
 
@@ -587,7 +589,7 @@ A new *module* for a user who is already backed up needs nothing more. A new *us
 | Free space | At least `min_free_gb` free |
 | Drive writable | `run` and `server init` create, clone and delete a test file on the drive; `status` only checks write permission, so it stays read-only |
 | rrsync | Found and runnable |
-| No other run | No live run lock (kept on the Mac mini's internal disk) |
+| No other run | No live run lock (kept on the server's internal disk) |
 | No interrupted promotion | No half-finished promotion is waiting (the next `run` finishes it) |
 | Config | Valid |
 
@@ -605,7 +607,7 @@ A row stops at its first failure; later columns show "–".
 | No leftover job | No job from an earlier run is still running for that user | `run` stops it first; red only if it will not stop |
 | Full Disk Access (macOS) | Probe job, started by launchd as that user | Tick BNBackupAgent in Full Disk Access on that Mac |
 | Module folders | Probe reads each `src_path` | `missing`, `drive_missing` (external drive not connected), `source_empty` (folder empty but its backup is not), `permission` or `tcc`, per folder |
-| Server reachable from host | Probe writes a small test file to the Mac mini with the user's push key | Network, DNS or key problem; or the Mac mini refused the write: turn on *Allow full disk access for remote users* there |
+| Server reachable from host | Probe writes a small test file to the server with the user's push key | Network, DNS or key problem; or the server refused the write: on a Mac server, turn on *Allow full disk access for remote users* there; check the drive is not read-only |
 
 The probe is a real job started through launchd or systemd, exactly like a backup. That matters on macOS: testing over SSH would test the SSH server's privacy context, not the agent's, and could report green when a backup would fail.
 
@@ -630,7 +632,7 @@ A run only starts when the server and every host are ready, and it only changes 
 | `UNFINISHED` | At least one module is red. Green modules stay in staging | Within the time limit: redoes only red modules |
 | `COMPLETE` | Every module green and staging promoted into `current/` | Starts a new run |
 | `EXPIRED` | An UNFINISHED run not completed within `unfinished_ttl_hours` (30) of the end of its **last** attempt | Starts a new run that redoes every module, reusing the data already in staging so nothing is copied twice |
-| `ABORTED` | A drive was unplugged during the run: the backup drive on the Mac mini, or a photo drive on a host. Everything in staging was deleted | Starts a new run from zero |
+| `ABORTED` | A drive was unplugged during the run: the backup drive on the server, or a photo drive on a host. Everything in staging was deleted | Starts a new run from zero |
 
 The status is decided by the server when a run ends. An UNFINISHED run past its time limit is shown as EXPIRED by status and recorded as EXPIRED by the next run. A run whose server process died without finishing (power cut, Ctrl-C) leaves a lock whose process no longer exists. The next command treats it as UNFINISHED with the interrupted modules red.
 
@@ -656,7 +658,7 @@ A module is **green** when the agent reported rsync exit code 0, or 24 ("some fi
 
 ### Step by step
 
-1. **Lock.** Take the run lock, kept on the Mac mini's internal disk so that a missing backup drive is reported as NOT STARTED, not mistaken for a run in progress. If a live lock exists, exit 3.
+1. **Lock.** Take the run lock, kept on the server's internal disk so that a missing backup drive is reported as NOT STARTED, not mistaken for a run in progress. If a live lock exists, exit 3.
 2. **Load state.** Finish any clean-up left by an aborted run (see "When a drive is unplugged" below). Read `.state/run.json`. If it is UNFINISHED and past its time limit, mark it EXPIRED and record it in the run history. Its staging folders stay: the new run sends every module again, and rsync only transfers what differs from what is already there. If it is UNFINISHED and in time, *resume* it. Otherwise prepare a new run with a new `run_id` (date and time, for example `20261110-213000`).
 3. **Work list.** New run: every module. Resumed run: only modules not green.
 4. **Wake and check.** For each host with work, run the status checks (section 10), sending Wake-on-LAN first if it is unreachable. If any row is red (a host is unreachable, Full Disk Access is missing, a photo drive is not connected), the run is **NOT STARTED**: nothing is copied, an UNFINISHED run stays exactly as it was, the board and a notification say what to fix, and the exit code is 1.
@@ -674,7 +676,7 @@ With `--dry-run` (or `dry_run: true`), nothing is changed anywhere: no staging i
 
 A drive disappearing in the middle of a run is treated as critical, because nobody can be sure what was copied. Two cases count:
 
-- **The backup drive on the Mac mini** is unplugged or unmounts.
+- **The backup drive on the server** is unplugged or unmounts.
 - **A photo drive on a host** (a module on an external drive) disappears while its job is running.
 
 In both cases the server:
@@ -686,13 +688,13 @@ In both cases the server:
 
 `current/` is never touched, so your last complete backup is safe. The next `bn-backup run` starts from zero.
 
-If it was the backup drive that vanished, the server cannot clean it or write to it. It leaves a note on the Mac mini's internal disk instead. After the drive is plugged back in, `status` shows "clean-up pending", and the next `run` finds the note, deletes `.staging/`, records the run as ABORTED and only then continues.
+If it was the backup drive that vanished, the server cannot clean it or write to it. It leaves a note on the server's internal disk instead. After the drive is plugged back in, `status` shows "clean-up pending", and the next `run` finds the note, deletes `.staging/`, records the run as ABORTED and only then continues.
 
 A drive that is simply not connected *before* a run is not an abort: the run does not start (step 4), and there is nothing to clean.
 
 ### Promotion
 
-Promotion turns staging into the new `current/`, one module at a time, by renaming folders on the same drive. Each rename is instant. A small journal, `.state/promotion.json`, lists every step before any is taken and marks each one done. If the Mac mini crashes in the middle, the next `bn-backup run` finishes the remaining steps first, including marking the run COMPLETE, and `status` shows "promotion interrupted" until then.
+Promotion turns staging into the new `current/`, one module at a time, by renaming folders on the same drive. Each rename is instant. A small journal, `.state/promotion.json`, lists every step before any is taken and marks each one done. If the server crashes in the middle, the next `bn-backup run` finishes the remaining steps first, including marking the run COMPLETE, and `status` shows "promotion interrupted" until then.
 
 For each module:
 
@@ -711,7 +713,7 @@ Then:
 
 rsync changes a file's *metadata* (permissions, extended attributes) in place without rewriting it. With hard links, that change would also hit the file in `current/` before promotion, breaking the "nothing changes until all green" promise. An APFS clone is a separate file that only shares data blocks, so it is safe. Snapshot mode keeps space low the same way: each snapshot shares unchanged data with the next.
 
-## 12. Storage layout on the Mac mini
+## 12. Storage layout on the server
 
 The v1 layout stays: the last complete backup is in `current/<module>/`. Modules removed from the config go to `removed/` (v1 called it `previous/`; `server init` renames an existing one). Your existing v1 backup becomes the starting point, so the first v2 run transfers only changes. New work folders start with a dot so they stay out of the way.
 
@@ -755,7 +757,7 @@ The server writes as your account, so every file on the drive is *really* owned 
 
 ### Restoring files
 
-In v2, restoring is done by hand: open `current/<module>/` on the Mac mini in Finder (the folder belongs to your account) and copy what you need. The original owners and permissions stay recorded in the backup, so a guided `bn-backup restore` command can bring them back exactly later. That command is future scope (section 17).
+In v2, restoring is done by hand: open `current/<module>/` on the server (in Finder on a Mac; the folder belongs to your account) and copy what you need. The original owners and permissions stay recorded in the backup, so a guided `bn-backup restore` command can bring them back exactly later. That command is future scope (section 17).
 
 ## 13. Security model
 
@@ -765,9 +767,9 @@ Every key and permission in the system can do one narrow job and nothing more. A
 
 | Credential | Lives on | Can log in to | Allowed to do |
 | --- | --- | --- | --- |
-| Server control key | Mac mini, `~/.ssh/bn-backup_ed25519` | Each host, as its admin account | Only the agent's `ctl` commands (they run as root, without a password). No shell, no file copy, no port forwarding |
-| Agent push key (one per `user@host`) | Host, `users/<user>/state/id_ed25519`, readable only by that user | Mac mini, as your account | Only `rrsync -wo` inside `.staging/<host>/<user>/`: write and delete there, nothing else, no shell, no port forwarding |
-| Server host key | Mac mini, pinned on every host | – | Proves to agents they are talking to the real Mac mini |
+| Server control key | Server, `~/.ssh/bn-backup_ed25519` | Each host, as its admin account | Only the agent's `ctl` commands (they run as root, without a password). No shell, no file copy, no port forwarding |
+| Agent push key (one per `user@host`) | Host, `users/<user>/state/id_ed25519`, readable only by that user | Server, as your account | Only `rrsync -wo` inside `.staging/<host>/<user>/`: write and delete there, nothing else, no shell, no port forwarding |
+| Server host key | Server, pinned on every host | – | Proves to agents they are talking to the real server |
 | sudoers rule on hosts | `/etc/sudoers.d/bn-backup-agent` | – | Admin account may run only `bn-backup-agent ctl *` as root without a password |
 | Full Disk Access | Each Mac, for BNBackupAgent | – | The agent may read protected folders, but only when launchd starts it as a backup user |
 
@@ -787,11 +789,11 @@ Whatever the server sends is handed to `ctl ssh-dispatch`, which runs it only if
 
 - The kids' agent jobs run as the kids. They read only what that child can already read.
 - Each child's push key belongs to that child's account (`600`), so other users on that Mac cannot use it.
-- On the Mac mini, the backups belong to your admin account and are closed to every other account on that Mac.
+- On the server, the backups belong to your admin account and are closed to every other account on that computer.
 
 ### What a stolen key could do
 
-The control key can start and stop backup jobs and read their results on every host. It cannot open a shell, install software or read files. The worst a thief could do with it is make a host back up a folder its user can already read, and that data would still go only to your Mac mini. The Mac mini itself matters more: whoever controls your account there has every backup. Protect it with FileVault, a strong password and automatic updates. If it is ever compromised, run `hosts remove` for every host from a clean machine, or delete the `bn-backup-server` line from each host's `authorized_keys`, then bootstrap again with a new key.
+The control key can start and stop backup jobs and read their results on every host. It cannot open a shell, install software or read files. The worst a thief could do with it is make a host back up a folder its user can already read, and that data would still go only to your server. The server itself matters more: whoever controls your account there has every backup. Protect it with FileVault, a strong password and automatic updates. If it is ever compromised, run `hosts remove` for every host from a clean machine, or delete the `bn-backup-server` line from each host's `authorized_keys`, then bootstrap again with a new key.
 
 ### The job file is trusted input
 
@@ -834,7 +836,7 @@ The server wakes sleeping hosts automatically and keeps every host awake while i
 
 - **macOS:** the agent starts `/usr/bin/caffeinate -i -s -w <agent process ID>`, which prevents sleep until the agent exits.
 - **Linux:** the agent holds a `systemd-inhibit --what=sleep:idle` lock for the duration of the job.
-- **Mac mini:** the server holds the same kind of lock (`caffeinate`) for the whole run. Its energy settings should also prevent sleep, since it is always on.
+- **Server:** the server holds the same kind of lock (`caffeinate` on macOS, `systemd-inhibit` on Linux) for the whole run. Its energy settings should also prevent sleep, since it is always on.
 
 A laptop closed and unplugged will sleep regardless. That module goes red and the next run retries it.
 
@@ -851,7 +853,7 @@ Runs are manual by default. Anyone can add a schedule on the server with one com
 
 Options: `--weekly <day>` or `--daily`, plus `--at HH:MM` in the server's local time. Only one schedule exists at a time; installing again replaces it. `schedule show` prints it and `schedule remove` deletes it.
 
-A scheduled run behaves exactly like a manual one. If it ends UNFINISHED, the next scheduled run (a week later) is past the 30-hour limit, so it backs up every module again (reusing the data already copied). The notification tells you to re-run by hand within 30 hours if you want that run completed. If the Mac mini was asleep at that time, launchd runs the backup once when it wakes. If it was switched off, that run is skipped until the next scheduled time (a Linux server's timer catches up after power-off too).
+A scheduled run behaves exactly like a manual one. If it ends UNFINISHED, the next scheduled run (a week later) is past the 30-hour limit, so it backs up every module again (reusing the data already copied). The notification tells you to re-run by hand within 30 hours if you want that run completed. If a Mac server was asleep at that time, launchd runs the backup once when it wakes. If it was switched off, that run is skipped until the next scheduled time (a Linux server's timer catches up after power-off too).
 
 ### Notifications
 
@@ -897,7 +899,7 @@ On `bootstrap` or `agent upgrade`, the server downloads the files for its own ve
 
 ### Updating
 
-1. Update the server on the Mac mini: `uv tool install --force <link to the new wheel in the GitHub release>`.
+1. Update the server: `uv tool install --force <link to the new wheel in the GitHub release>`.
 2. Run `bn-backup status`. Hosts whose agent protocol is no longer accepted are red.
 3. Run `bn-backup agent upgrade` (all hosts) or `agent upgrade HOST`.
    - **Linux:** copied and installed with sudo apt-get install over SSH. You type the admin password at your desk. Done.
@@ -914,7 +916,7 @@ These are known gaps. None blocks v2.
 ### Limitations
 
 - **Strict by design.** One host that is off, or one photo drive that is not connected, keeps the whole backup from starting. Check the board (`bn-backup status`) before a run. **One visit per Mac** is also needed, plus one Full Disk Access tick after each agent update. Only a device-management server or a paid Developer ID would reduce this.
-- **FileVault after a reboot.** Until someone unlocks a Mac at its login screen after a restart, it cannot be reached over SSH. Reboot Macs before a planned backup, not during it. The same applies to the Mac mini: after a power cut it waits at the unlock screen, so scheduled runs resume only once someone unlocks it.
+- **FileVault after a reboot.** Until someone unlocks a Mac at its login screen after a restart, it cannot be reached over SSH. Reboot Macs before a planned backup, not during it. The same applies to a Mac server: after a power cut it waits at the unlock screen, so scheduled runs resume only once someone unlocks it.
 - **Shut-down machines** mostly cannot be woken (section 14).
 - **iCloud Drive with *Optimize Mac Storage*.** Files stored only in iCloud are placeholders on the Mac. rsync reading them makes macOS download them first, which can be slow and fill the disk. Either turn optimization off on Macs whose iCloud folders are backed up, or exclude those folders and rely on iCloud itself.
 - **Open databases.** Photo catalogs (Lightroom Classic, Capture One, Apple Photos) and other apps that keep databases open (Mail, virtual machines) may be copied mid-change. Quit them before a backup for a consistent copy. This matters most for catalogs, which hold years of edits.
@@ -928,7 +930,7 @@ These are known gaps. None blocks v2.
 - **`bn-backup restore`**, putting files back with original owners and permissions.
 - **Open-catalog check** for photographers: warn, or skip a module, when Lightroom Classic, Capture One or Photos has its catalog open on that host.
 - **A desktop app** for photographers who prefer not to use a terminal, built on the same server.
-- **Docker containers on the Mac mini.** Docker Desktop keeps volumes inside its own Linux virtual machine, so they are not ordinary folders. Backing them up needs either bind-mounted host folders, picked up by a local agent on the Mac mini, or a volume export step before the run. The architecture already allows an agent on the server itself.
+- **Docker containers on the server.** Docker Desktop keeps volumes inside its own Linux virtual machine, so they are not ordinary folders. Backing them up needs either bind-mounted host folders, picked up by a local agent on the server, or a volume export step before the run. The architecture already allows an agent on the server itself.
 - **Apple Developer ID signing**, so Full Disk Access survives updates.
 - **A web or menu-bar view** of the status board.
 
@@ -940,7 +942,7 @@ Every design decision, in one place. The implementation instructions (`CLAUDE.md
 | --- | --- | --- |
 | D-01 | Agent on every source host; the server decides, the agent only executes (thin agent) | Reading as the file's owner removes cross-user permission problems; a thin agent rarely changes |
 | D-02 | Agent written in Rust, one codebase for macOS and Linux | Single self-contained file; no runtime needed on Macs |
-| D-03 | Server written in Python 3.11+; runs on macOS (the Mac mini) and on Debian-based Linux, tested on both (D-53) | Reuses v1 code and skills; also usable on a Linux server |
+| D-03 | Server written in Python 3.11+; runs on macOS and on Debian-based Linux, tested on both (D-53) | Reuses v1 code and skills; also usable on a Linux server |
 | D-04 | Data flows by push: agent rsyncs to the server over SSH | The reading process must be the agent, started by launchd, for TCC |
 | D-05 | Server starts jobs over SSH via `sudo bn-backup-agent ctl start`, which calls `launchctl kickstart` or `systemctl start`; it never runs the agent directly over SSH | Keeps launchd/systemd as the parent, so Full Disk Access applies |
 | D-06 | Mac install: `.pkg` copied to `/Users/Shared/` and installed with `sudo installer` over SSH (admin password typed at your desk); someone ticks Full Disk Access at the Mac. Linux: `.deb` installed fully over SSH | Smallest possible visit; refines the earlier "user runs a disk image" idea, and the `.pkg` stays available for manual install |
@@ -958,17 +960,17 @@ Every design decision, in one place. The implementation instructions (`CLAUDE.md
 | D-18 | Host addresses are fully qualified DNS names, `.local` names or IP addresses; bare names are refused | Works with a local DNS server or plain .local names; bare names resolve unreliably |
 | D-19 | Keep v1's host-config backup: `/etc/hosts`, `/etc/motd` and dotfiles per `user@host` | Your preference |
 | D-20 | Backup drive: APFS (Case-sensitive), ownership on; staging by APFS clone, not hard links | Atomic renames, cheap copies, safe metadata updates, no case collisions |
-| D-21 | No separate backup account: the server runs as your admin account on the Mac mini, which owns the backup folder and receives the pushes; push keys locked with `restrict` + `rrsync -wo` | Simpler to install, restore and adopt a v1 backup; accepted trade-off: the backup is as protected as that account |
+| D-21 | No separate backup account: the server runs as your admin account on the server, which owns the backup folder and receives the pushes; push keys locked with `restrict` + `rrsync -wo` | Simpler to install, restore and adopt a v1 backup; accepted trade-off: the backup is as protected as that account |
 | D-22 | Original owners and permissions kept with rsync `--fake-super` | Server account is not root |
 | D-23 | Keep v1 layout `current/<module>`; v1's `previous/` is renamed `removed/`; add `.staging/`, `.state/`, `.trash/`, `snapshots/`, `logs/` | Existing backup reused; no full re-copy |
 | D-24 | Wake-on-LAN on by default: agent enables it and reports MAC addresses; server wakes unreachable hosts and waits up to 180 s | Your request; works for sleeping machines |
 | D-25 | Notifications by Email (SMTP) and Signal (`signal-cli` linked device, Note to Self) at the end of every non-dry run | Your choice of channels |
 | D-26 | Manual runs by default; optional weekly or daily schedule on the server | Your preference, flexible for others |
 | D-27 | Removing a host or module from the config stops backing it up; the agent stays installed; modules move to `removed/` | Your preference |
-| D-28 | The Mac mini is not a backup source in v2; the design allows a local agent later (Docker) | Your plan |
+| D-28 | The server is not a backup source in v2; the design allows a local agent later (Docker) | Your plan |
 | D-29 | CI builds every release from a tag: `.pkg` (universal), `.deb` (amd64, arm64), server wheel, `SHA256SUMS`; server downloads its matching version | Your preference for CI-built releases |
 | D-30 | One run at a time, enforced by a lock file on the server's internal disk (D-56); up to `max_parallel_hosts` (2) hosts in parallel, users on one host one after another | Protects the drive and the network |
-| D-31 | Config at ~/.config/bn-backup/config.yml in your home folder on the Mac mini; the SMTP password in a separate private file | You edit it directly; no secrets in the config |
+| D-31 | Config at ~/.config/bn-backup/config.yml in your home folder on the server; the SMTP password in a separate private file | You edit it directly; no secrets in the config |
 | D-32 | If server checks fail before a run starts, send a NOT STARTED notification and exit 1 without changing anything | A scheduled run must never fail silently |
 | D-33 | CLI naming: bn-backup \<thing> \<action> (server, config, hosts, agent, runs, schedule, notify), plus top-level status and run | Your convention; predictable and easy to extend |
 | D-34 | Hosts can be added by editing the config or with hosts add HOST, which writes the config (keeping comments) and bootstraps | Your choice of both ways; the config stays the single source of truth |

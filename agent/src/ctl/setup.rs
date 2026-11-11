@@ -192,10 +192,10 @@ mod tests {
     fn argument_validation() {
         let a = SetupArgs {
             host_name: "athena".into(),
-            server_host: "macmini.home.lan".into(),
+            server_host: "server.home.lan".into(),
             server_port: 22,
             server_user: "ariel".into(),
-            server_known_hosts_line: "macmini.home.lan ssh-ed25519 AAAAhost".into(),
+            server_known_hosts_line: "server.home.lan ssh-ed25519 AAAAhost".into(),
             admin_user: "ariel".into(),
             control_key: KEY.into(),
         };
@@ -204,7 +204,7 @@ mod tests {
         b.host_name = "Athena".into();
         assert!(validate(&b).is_err());
         let mut b = a.clone();
-        b.server_known_hosts_line = "macmini".into();
+        b.server_known_hosts_line = "backupserver".into();
         assert!(validate(&b).is_err());
     }
 }

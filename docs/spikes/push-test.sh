@@ -3,7 +3,7 @@
 # Copyright (c) 2018-2026 Ariel Hernandez (bleiben)
 #
 # Phase 0, on the source Mac, in Terminal as the admin account: push test
-# data to the Mac mini through rrsync with the bundled rsync and the exact
+# data to the server Mac through rrsync with the bundled rsync and the exact
 # options the agent will use (CLAUDE.md §5.9). Spikes S3, S13, S14.
 #
 # Usage:
@@ -35,7 +35,7 @@ setup)
     xattr -w com.bleiben.tag keeper "$SRC/2019/DSC_0001.NEF"
     chmod 640 "$SRC/2019/DSC_0002.NEF"
     echo "test files in $SRC"
-    echo "copy this public key to the Mac mini and run setup-rrsync.sh with it:"
+    echo "copy this public key to the server Mac and run setup-rrsync.sh with it:"
     echo "  $KEY.pub"
     ;;
 all)
@@ -73,7 +73,7 @@ s14)
     step "verify pass --checksum --dry-run: expect '<fc......... Photos/s14.bin' (c set, s and t '.')"
     push --checksum --dry-run "$SRC" "$DEST"
     echo
-    echo "Now, on the Mac mini, this must still print AAAAAAAA (nothing was transferred):"
+    echo "Now, on the server Mac, this must still print AAAAAAAA (nothing was transferred):"
     echo "  cat $BACKUP_VOL/bnspike-staging/testhost/$TESTUSER/mod/Photos/s14.bin"
     ;;
 *)

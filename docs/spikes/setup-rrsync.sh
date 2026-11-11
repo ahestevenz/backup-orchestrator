@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 # Copyright (c) 2018-2026 Ariel Hernandez (bleiben)
 #
-# Phase 0, on the Mac mini, as your own account (not sudo): install rrsync
+# Phase 0, on the server Mac, as your own account (not sudo): install rrsync
 # from rsync 3.4.1 and lock a test push key to one staging folder, the way
 # "server init" and "hosts configure" will (CLAUDE.md §6.2, §6.3).
 # Spikes S3, S13, S14.

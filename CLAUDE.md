@@ -62,7 +62,7 @@ Two programs and their packaging:
 
 | Component | Language | Runs on | Binary / command |
 |---|---|---|---|
-| **Server** | Python ≥ 3.11 | Mac mini (macOS 13+) or Debian-based Linux, as the operator's own admin account (§6.1) | `bn-backup` |
+| **Server** | Python ≥ 3.11 | Any always-on Mac (macOS 13+) or Debian-based Linux computer, as the operator's own admin account (§6.1) | `bn-backup` |
 | **Agent** | Rust (stable, edition 2021) | Every source host: macOS 13+ (Apple silicon + Intel), Debian-based Linux (amd64, arm64) | `bn-backup-agent` |
 
 - The server decides everything. The agent only executes jobs (D-01).
@@ -186,7 +186,7 @@ version: 2                                   # required, must be 2
 
 server:
   backup_directory: /Volumes/Backup/bn-backup   # required, absolute
-  ssh_host: macmini.home.lan                    # required: FQDN, .local name or IP
+  ssh_host: server.home.lan                    # required: FQDN, .local name or IP
   ssh_port: 22                                  # default 22
   receive_user: ariel                           # required: the operator's account on the server (§6.1)
 
@@ -370,7 +370,7 @@ Job (`job.json`):
   "run_id": "20261110-213000",            // "" for probes
   "user": "sofia",
   "host_name": "athena",
-  "server": {"host": "macmini.home.lan", "port": 22, "user": "ariel"},
+  "server": {"host": "server.home.lan", "port": 22, "user": "ariel"},
   "options": {"verify": false, "partial": true, "dry_run": false, "io_timeout_seconds": 600},
   "timeout_seconds": 0,                   // 0 = no overall limit
   "modules": [
@@ -556,7 +556,7 @@ First match wins:
 | exit 23 and stderr contains `Permission denied` | failed | permission |
 | anything else | failed | other |
 
-`server_denied` means the *server* refused the write (on a Mac mini: "Allow
+`server_denied` means the *server* refused the write (on a Mac server: "Allow
 full disk access for remote users" is off, or the drive is read-only). rsync 3
 tags each error line with the role that produced it (rsync 3.4 capitalises the
 server-side roles, `[Receiver]`, so match without case; an `rrsync error:` line
@@ -598,7 +598,7 @@ The sudoers rule of §5.6 already covers `ctl ssh-dispatch`.
 ### 6.1 The operator account, install and `server init` (D-21, D-31)
 
 There is **no dedicated backup account**. The server runs as **the operator**:
-the admin account on the Mac mini that installs and runs `bn-backup`.
+the admin account on the server that installs and runs `bn-backup`.
 `server.receive_user` in the config names that account, and agents push to it.
 No wrapper script and no sudoers rule exist on the server.
 
@@ -660,7 +660,7 @@ path of an rsync that reports version ≥ 3.2.3:
 
 Set its shebang to the server's own Python interpreter.
 
-### 6.3 Managed `authorized_keys` on the Mac mini
+### 6.3 Managed `authorized_keys` on the server
 
 The operator's `~/.ssh/authorized_keys` on the server contains a block the server owns:
 ```
@@ -1150,7 +1150,7 @@ reader (photographers) with one concrete next step:
 | error_kind | Hint |
 |---|---|
 | `tcc` | Switch on BNBackupAgent in Full Disk Access on <host>. If it is already on, the server may have refused the write: check "Allow full disk access for remote users" on the server |
-| `server_denied` | The server refused to write to the backup drive. On the Mac mini: System Settings → General → Sharing → Remote Login → ⓘ → turn on "Allow full disk access for remote users", and check the drive is not read-only |
+| `server_denied` | The server refused to write to the backup drive. On a Mac server: System Settings → General → Sharing → Remote Login → ⓘ → turn on "Allow full disk access for remote users", and check the drive is not read-only |
 | `permission` | <user> cannot read some files in <src_path> on <host>; fix their ownership or exclude them |
 | `missing` | <src_path> does not exist on <host>; check the path in the config |
 | `drive_missing` | Is the external drive <name> connected to <host>? Connect it and run again |
@@ -1463,7 +1463,7 @@ ABORTED by detaching the source image mid-run, ABORTED by detaching the backup
 image mid-run (marker, then clean-up), `schedule install` renders and loads.
 If the hosted runner cannot do part of this (no SSH server, privacy protection
 blocking the attached image), record exactly what failed in `docs/spikes.md`,
-stop and ask the owner; the fallback is a self-hosted runner on the Mac mini.
+stop and ask the owner; the fallback is a self-hosted macOS runner (for example the owner's server).
 
 **macOS manual checklist** (`docs/testing-macos.md`, Phase 6), for what needs a
 person and Full Disk Access: FDA denied → status red with the right hint;
@@ -1543,7 +1543,7 @@ Each spike states pass/fail with evidence (commands + output). **Any fail → st
 - S8: `/etc/sudoers.d/` drop-ins are honoured on macOS 13+.
 - S9: `launchctl print system/<label>` shows a usable `state =` field for
   running/not running.
-- S10 (D-54): on the Mac mini, a Python process running as the operator can
+- S10 (D-54): on the server Mac, a Python process running as the operator can
   create, `clonefile` and delete files on the external APFS volume (a) when
   started from Terminal and (b) when started by a LaunchDaemon with
   `UserName=<operator>` after a reboot with nobody logged in. Record any

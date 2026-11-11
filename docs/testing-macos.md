@@ -7,7 +7,7 @@ before each release that changes the agent or the server's run engine
 (CLAUDE.md §8, Phase 6). Record the date, the version and the result of each
 item at the bottom.
 
-**Machines:** the Mac mini (server, with the backup drive) and one source Mac
+**Machines:** the server Mac (with the backup drive) and one source Mac
 with a child account (the examples use `athena` and `sofia`). The server is
 installed and `bn-backup status` is green before you start.
 
@@ -15,7 +15,7 @@ installed and `bn-backup status` is green before you start.
 
 1. On the source Mac: System Settings → Privacy & Security → Full Disk Access
    → switch **BNBackupAgent** off.
-2. On the Mac mini: `bn-backup status`.
+2. On the server Mac: `bn-backup status`.
    **Expect:** the `athena/sofia` row is red with
    "Switch on BNBackupAgent in Full Disk Access on athena".
 3. Switch it back on; run `bn-backup status` again.
@@ -30,7 +30,7 @@ installed and `bn-backup status` is green before you start.
 
 ## 3. Agent upgrade: the Full Disk Access re-prompt
 
-1. Install a newer server version on the Mac mini (or reinstall the same
+1. Install a newer server version on the server Mac (or reinstall the same
    version's wheel built from a changed agent), then `bn-backup agent upgrade athena`.
    **Expect:** the package installs over SSH with your password; the server
    says "Go to athena and switch on BNBackupAgent…" and System Settings opens
@@ -39,9 +39,9 @@ installed and `bn-backup status` is green before you start.
    looks on but the probe stays red, and note which it was).
    **Expect:** the upgrade finishes by itself within 15 seconds.
 
-## 4. The Mac mini refuses the write
+## 4. The server Mac refuses the write
 
-1. On the Mac mini: System Settings → General → Sharing → Remote Login → ⓘ →
+1. On the server Mac: System Settings → General → Sharing → Remote Login → ⓘ →
    turn **"Allow full disk access for remote users" off**.
 2. `bn-backup status`.
    **Expect:** red, with the hint to turn that setting back on (`server_denied`).
@@ -50,10 +50,10 @@ installed and `bn-backup status` is green before you start.
 ## 5. A scheduled run after a reboot with nobody logged in
 
 1. `sudo "$(command -v bn-backup)" schedule install --daily --at <5 minutes from now>`.
-2. Restart the Mac mini and do **not** log in. With FileVault on, use
+2. Restart the server Mac and do **not** log in. With FileVault on, use
    `sudo fdesetup authrestart` so the disk unlocks without a login.
 3. After the scheduled time, from another computer:
-   `ssh <you>@<mac mini> ~/.local/bin/bn-backup runs list`.
+   `ssh <you>@<server> ~/.local/bin/bn-backup runs list`.
    **Expect:** a new run that is COMPLETE. If the backup drive was not mounted,
    see spike S11 (`AutomountDisksWithoutUserLogin`).
 4. `sudo "$(command -v bn-backup)" schedule remove`.

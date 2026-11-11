@@ -64,7 +64,7 @@ impl World {
         std::fs::write(
             ah.join("agent.toml"),
             format!(
-                "server_host = \"macmini.home.lan\"\nserver_port = 22\nserver_user = \"{user}\"\n\
+                "server_host = \"server.home.lan\"\nserver_port = 22\nserver_user = \"{user}\"\n\
                  admin_user = \"{user}\"\nhost_name = \"athena\"\n"
             ),
         )
@@ -145,7 +145,7 @@ impl World {
         serde_json::json!({
             "protocol": 1, "kind": kind, "job_id": "e2e", "run_id": "20261110-213000",
             "user": self.user, "host_name": "athena",
-            "server": {"host": "macmini.home.lan", "port": 22, "user": self.user},
+            "server": {"host": "server.home.lan", "port": 22, "user": self.user},
             "options": {"verify": verify, "partial": true, "dry_run": false, "io_timeout_seconds": 60},
             "timeout_seconds": 0,
             "modules": modules,
@@ -229,7 +229,7 @@ fn rrsync_refusal_is_server_denied() {
     let w = World::new(rsync);
     let src = w.src("Docs");
     std::fs::write(src.join("a.txt"), b"a").unwrap();
-    // The staging folder is not writable: like a Mac mini that refuses the write.
+    // The staging folder is not writable: like a server that refuses the write.
     std::fs::set_permissions(&w.server, std::fs::Permissions::from_mode(0o500)).unwrap();
     let module =
         serde_json::json!([{"name": "docs", "type": "path", "src_path": src.to_string_lossy()}]);

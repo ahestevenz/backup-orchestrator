@@ -158,7 +158,7 @@ pub mod tests {
 
     pub fn cfg() -> AgentConfig {
         AgentConfig {
-            server_host: "macmini.home.lan".into(),
+            server_host: "server.home.lan".into(),
             server_port: 22,
             server_user: "ariel".into(),
             admin_user: "ariel".into(),
@@ -169,7 +169,7 @@ pub mod tests {
     pub const JOB: &str = r#"{
       "protocol": 1, "kind": "backup", "job_id": "3f0c", "run_id": "20261110-213000",
       "user": "sofia", "host_name": "athena",
-      "server": {"host": "macmini.home.lan", "port": 22, "user": "ariel"},
+      "server": {"host": "server.home.lan", "port": 22, "user": "ariel"},
       "options": {"verify": false, "partial": true, "dry_run": false, "io_timeout_seconds": 600},
       "timeout_seconds": 0,
       "modules": [

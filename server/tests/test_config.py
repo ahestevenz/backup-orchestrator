@@ -57,7 +57,7 @@ def test_invalid_addresses(address: str) -> None:
 
 
 def test_bare_ssh_host_refused() -> None:
-    errs = errors_for(config_data(server={"ssh_host": "macmini"}))
+    errs = errors_for(config_data(server={"ssh_host": "backupserver"}))
     assert any("bare host name" in e and "D-18" in e for e in errs)
 
 
@@ -263,7 +263,7 @@ def test_migrate_v1_readme_example() -> None:
     # Not valid until the placeholders are edited, by design.
     with pytest.raises(ConfigError):
         validate_data(data)
-    data["server"]["ssh_host"] = "macmini.home.lan"
+    data["server"]["ssh_host"] = "server.home.lan"
     for h in data["hosts"].values():
         h["address"] = h["address"].replace("CHANGE-ME.", "home.")
     validate_data(data)

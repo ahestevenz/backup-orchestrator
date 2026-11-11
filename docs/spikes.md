@@ -15,18 +15,18 @@ not a disaster; it means the design changes before the code does.
 | --- | --- | --- | --- |
 | S1 | An ad-hoc-signed agent started by launchd as another user reads that user's `~/Documents` through its bundled rsync once it has Full Disk Access, and is refused without it | Source Mac | pending |
 | S2 | Starting that job through the locked control key works without "Allow full disk access for remote users" | Source Mac | pending |
-| S3 | rrsync 3.4.1 with `-wo` accepts every option the agent sends, refuses reads, and the fake-super attribute lands on APFS | Mac mini | pending |
+| S3 | rrsync 3.4.1 with `-wo` accepts every option the agent sends, refuses reads, and the fake-super attribute lands on APFS | Server Mac | pending |
 | S4 | A new agent build loses Full Disk Access; reinstalling the identical build keeps it | Source Mac | pending |
 | S5 | An unsigned `.pkg` copied by `scp` installs with `sudo installer` over SSH | Source Mac | pending |
-| S6 | `clonefile()` clones a folder tree on the backup drive, keeps the fake-super attributes, and the clone's metadata is independent | Mac mini | pending |
-| S7 | `signal-cli` delivers to Note to Self on a linked device | Mac mini | pending |
+| S6 | `clonefile()` clones a folder tree on the backup drive, keeps the fake-super attributes, and the clone's metadata is independent | Server Mac | pending |
+| S7 | `signal-cli` delivers to Note to Self on a linked device | Server Mac | pending |
 | S8 | `/etc/sudoers.d/` drop-ins are honoured | Source Mac | pending |
 | S9 | `launchctl print` shows a usable `state =` field | Source Mac | pending |
-| S10 | Python running as you can create, clone and delete on the backup drive, from Terminal and from a LaunchDaemon after a reboot with nobody logged in | Mac mini | pending |
-| S11 | The backup drive is mounted after a reboot with nobody logged in | Mac mini | pending |
+| S10 | Python running as you can create, clone and delete on the backup drive, from Terminal and from a LaunchDaemon after a reboot with nobody logged in | Server Mac | pending |
+| S11 | The backup drive is mounted after a reboot with nobody logged in | Server Mac | pending |
 | S12 | The locked control key passes commands, quotes and stdin intact, and refuses a shell, `scp` and port forwarding | Source Mac and Debian 12 | pending |
-| S13 | With "Allow full disk access for remote users" off on the Mac mini, the push error carries a `[receiver]` or `[generator]` tag | Mac mini | pending |
-| S14 | `--checksum --dry-run` flags a file whose content changed while size and date stayed the same, and transfers nothing | Mac mini | pending |
+| S13 | With "Allow full disk access for remote users" off on the server Mac, the push error carries a `[receiver]` or `[generator]` tag | Server Mac | pending |
+| S14 | `--checksum --dry-run` flags a file whose content changed while size and date stayed the same, and transfers nothing | Server Mac | pending |
 
 ### Already checked on the development Mac (not a substitute)
 
@@ -51,7 +51,7 @@ your real machines.
 | Machine | Needs |
 | --- | --- |
 | **Source Mac** (`TESTMAC`) | macOS 13 or later. *Remote Login* on, and inside its ⓘ **"Allow full disk access for remote users" OFF** (S2 depends on it). Xcode Command Line Tools (`xcode-select --install`) and Rust ([rustup.rs](https://rustup.rs)) |
-| **Mac mini** (`SERVER`) | The backup drive connected (APFS, Case-sensitive). *Remote Login* on, with **"Allow full disk access for remote users" ON** (off only during S13). Homebrew, then `brew install rsync signal-cli qrencode uv` |
+| **Server Mac** (`SERVER`) | The backup drive connected (APFS, Case-sensitive). *Remote Login* on, with **"Allow full disk access for remote users" ON** (off only during S13). Homebrew, then `brew install rsync signal-cli qrencode uv` |
 | **Debian 12 host** (`LINUXHOST`) | `openssh-server` and `sudo` installed; your admin account in the `sudo` group |
 
 ### 0.2 Edit the settings and copy the kit
@@ -81,7 +81,7 @@ The spikes back up a throwaway account, never a real family member's.
 2. At the Mac, log in once as **BN Spike**. Open TextEdit, save a file named
    `spike.txt` in **Documents**, then log out completely (Apple menu → Log Out).
 
-### 0.4 The control key (on the Mac mini)
+### 0.4 The control key (on the server Mac)
 
 ```sh
 ssh-keygen -t ed25519 -N "" -C bnspike-control -f ~/.ssh/bnspike_control
@@ -228,7 +228,7 @@ for everything, say so in the result.
 ### S2 — Starting the job through the control key
 
 On the source Mac, check again that **"Allow full disk access for remote
-users" is OFF**. Then, **from the Mac mini**:
+users" is OFF**. Then, **from the server Mac**:
 
 ```sh
 ssh -i ~/.ssh/bnspike_control -o IdentitiesOnly=yes "$ADMIN@$TESTMAC" 'ctl start bntest'
@@ -246,7 +246,7 @@ Expect `kickstart exit=0`. Then on the source Mac:
 
 ### S12 (macOS) — the locked control key
 
-From the **Mac mini**. `C` holds the options used for every command:
+From the **server Mac**. `C` holds the options used for every command:
 
 ```sh
 C="-i $HOME/.ssh/bnspike_control -o IdentitiesOnly=yes"
@@ -278,8 +278,8 @@ ssh $C -W localhost:22 $H; echo "forward exit=$?"             # 7
 ### S5 — Installing an unsigned package over SSH
 
 1. On the source Mac: `./make-app.sh --pkg ~/bnspike.pkg`, then copy it to the
-   Mac mini: `scp ~/bnspike.pkg "$OPERATOR@$SERVER:"`
-2. From the **Mac mini**, with your ordinary login (your own key or password,
+   server Mac: `scp ~/bnspike.pkg "$OPERATOR@$SERVER:"`
+2. From the **server Mac**, with your ordinary login (your own key or password,
    **not** the control key):
 
    ```sh
@@ -297,18 +297,18 @@ has no `com.apple.quarantine` attribute, and the app is in `/Applications`.
 ```text
 ```
 
-## B. The Mac mini
+## B. The server Mac
 
 ### B.0 Set up the push key and rrsync
 
 1. On the **source Mac**: `./push-test.sh setup`, then copy the key:
    `scp ~/.ssh/bnspike_push.pub "$OPERATOR@$SERVER:"`
-2. On the **Mac mini**, as yourself (no sudo): `./setup-rrsync.sh ~/bnspike_push.pub`
+2. On the **server Mac**, as yourself (no sudo): `./setup-rrsync.sh ~/bnspike_push.pub`
 
 ### S3 — rrsync accepts the agent's options
 
-"Allow full disk access for remote users" must be **ON** on the Mac mini. On
-the **source Mac**: `./push-test.sh all`. Then on the **Mac mini**:
+"Allow full disk access for remote users" must be **ON** on the server Mac. On
+the **source Mac**: `./push-test.sh all`. Then on the **server Mac**:
 
 ```sh
 cd "$BACKUP_VOL/bnspike-staging/testhost/$TESTUSER/mod/Photos/2019"
@@ -330,20 +330,20 @@ is refused with an rrsync error, `ls -li` shows the same inode number for
 ### S14 — The verify pass finds silent changes
 
 On the **source Mac**: `./push-test.sh s14`, then run the `cat` command it
-prints, on the Mac mini.
+prints, on the server Mac.
 
 **Pass when** the plain dry run lists nothing for `Photos/s14.bin`, the
 verify pass prints a line starting with `<fc` (a push marks sent files with
-`<`) and with `.` in the 4th and 5th characters for it, and the file on the Mac mini still contains `AAAAAAAA`.
+`<`) and with `.` in the 4th and 5th characters for it, and the file on the server Mac still contains `AAAAAAAA`.
 
 **Result:** pending
 
 ```text
 ```
 
-### S13 — When the Mac mini refuses the write
+### S13 — When the server Mac refuses the write
 
-1. On the Mac mini: System Settings → General → Sharing → Remote Login → ⓘ →
+1. On the server Mac: System Settings → General → Sharing → Remote Login → ⓘ →
    turn **"Allow full disk access for remote users" OFF**.
 2. On the source Mac: `./push-test.sh all`. Only step 1 matters.
 3. Turn the setting back **ON**.
@@ -382,7 +382,7 @@ note that it asked.
 ### S7 — Signal Note to Self
 
 ```sh
-signal-cli link -n "bn-backup Mac mini" | tee >(head -1 | qrencode -t ansiutf8)
+signal-cli link -n "bn-backup server" | tee >(head -1 | qrencode -t ansiutf8)
 ```
 
 On your phone: Signal → Settings → Linked devices → **+**, and scan the code.
@@ -428,7 +428,7 @@ Keep this link: the real server will use it.
      restart, then stops at the login window).
    - FileVault off: a normal restart, with automatic login turned off.
 
-   Wait 4 minutes. Without logging in at the Mac mini, read the result from
+   Wait 4 minutes. Without logging in at the server Mac, read the result from
    another computer:
    `ssh "$OPERATOR@$SERVER" cat /Users/Shared/bnspike/volume_test.log`
 4. **S11:** if the run after the restart says `mounted: False`, run
@@ -454,7 +454,7 @@ encrypted.
 
 On the Debian host: `cd ~/bnspike-kit && sudo ./setup-control.sh "$ADMIN" ~/bnspike_control.pub`
 
-Then from the **Mac mini**, run commands 1–7 of S12 (macOS) with
+Then from the **server Mac**, run commands 1–7 of S12 (macOS) with
 `H="$ADMIN@$LINUXHOST"`. The pass conditions are the same.
 
 **Result:** pending
@@ -479,7 +479,7 @@ rm -rf ~/bnspike-build ~/bnspike.pkg ~/bnspike_control.pub ~/.ssh/bnspike_push ~
 Then remove BNSpike from Full Disk Access (select it, click **−**), and delete
 `~/bnspike-kit`.
 
-**Mac mini:**
+**Server Mac:**
 
 ```sh
 ./setup-rrsync.sh --remove

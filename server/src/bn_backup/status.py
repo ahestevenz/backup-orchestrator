@@ -268,7 +268,7 @@ def server_checks(env: Env, *, write_test: bool, own_lock: bool = False) -> Serv
 
 SERVER_ERROR_HINTS = {
     "server_denied": (
-        "the server refused the write. On the Mac mini: System Settings → General → Sharing → "
+        "the server refused the write. On a Mac server: System Settings → General → Sharing → "
         "Remote Login → ⓘ → turn on 'Allow full disk access for remote users', and check the "
         "drive is not read-only"
     ),

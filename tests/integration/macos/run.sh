@@ -13,7 +13,7 @@
 # Full Disk Access: the probe requires it, and only a person or MDM can grant
 # it on a normal Mac. On a runner with SIP disabled the script grants it in
 # the TCC database; otherwise it stops with exit 78 and says so (record it in
-# docs/spikes.md; the fallback is a self-hosted runner on the Mac mini).
+# docs/spikes.md; the fallback is a self-hosted macOS runner).
 #
 # Needs in ../../../dist: bn-backup-agent-<v>.pkg and bn_backup-<v>-py3-none-any.whl.
 set -euo pipefail

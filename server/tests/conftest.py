@@ -17,7 +17,7 @@ BASE_CONFIG: dict[str, Any] = {
     "version": 2,
     "server": {
         "backup_directory": "/Volumes/Backup/bn-backup",
-        "ssh_host": "macmini.home.lan",
+        "ssh_host": "server.home.lan",
         "receive_user": "ariel",
     },
     "hosts": {

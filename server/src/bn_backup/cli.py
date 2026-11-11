@@ -159,7 +159,7 @@ def build_parser() -> argparse.ArgumentParser:
     def agent_package(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--agent-package", metavar="PATH", help="use a local agent package")
 
-    srv = group("server", "the Mac mini itself")
+    srv = group("server", "the server itself")
     srv.add_parser("init", help="one-time setup of this server")
     json_flag(srv.add_parser("status", help="server checks only"))
 

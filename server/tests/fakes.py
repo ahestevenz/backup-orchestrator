@@ -320,7 +320,7 @@ def make_env(
     op.rrsync.write_text(f"#!/usr/bin/env python3\nRSYNC = '{rsync}'\n")
     op.rrsync.chmod(0o755)
     host_key = tmp_path / "ssh_host_ed25519_key.pub"
-    host_key.write_text("ssh-ed25519 AAAAhostkey root@macmini\n")
+    host_key.write_text("ssh-ed25519 AAAAhostkey root@server\n")
     os.environ["BN_BACKUP_TEST_CLONE"] = "copy"
     return Env(
         loaded=load_config(cfg_path, home=home),

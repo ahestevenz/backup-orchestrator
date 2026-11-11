@@ -129,7 +129,7 @@ mod tests {
         assert_eq!(
             kind(
                 Some(1),
-                &["ssh: Could not resolve hostname macmini"],
+                &["ssh: Could not resolve hostname server"],
                 Os::Linux
             ),
             Some(Network)

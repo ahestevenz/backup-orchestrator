@@ -116,7 +116,7 @@ def test_probe_job_has_the_users_modules(tmp_path: Path) -> None:
     job = fleet.hosts["athena"].jobs[-1]
     assert job["kind"] == "probe"
     assert [m["name"] for m in job["modules"]] == ["sofia-athena", "sofia-documents"]
-    assert job["server"] == {"host": "macmini.home.lan", "port": 22, "user": "ariel"}
+    assert job["server"] == {"host": "server.home.lan", "port": 22, "user": "ariel"}
 
 
 def test_expect_nonempty_follows_current(tmp_path: Path) -> None:
@@ -231,7 +231,7 @@ def test_bootstrap_linux_host(tmp_path: Path, capsys: pytest.CaptureFixture[str]
     assert "id -u ariel" in cmds
     assert any("sudo apt-get install -y /tmp/bn-backup-agent_2.0.0_amd64.deb" in c for c in cmds)
     setup = next(c for c in cmds if " ctl setup " in c)
-    assert "--server-known-hosts-line 'macmini.home.lan ssh-ed25519 AAAAhostkey'" in setup
+    assert "--server-known-hosts-line 'server.home.lan ssh-ed25519 AAAAhostkey'" in setup
     assert "--control-key 'ssh-ed25519 AAAAC3NzaCserver bn-backup-server'" in setup
     assert setup.startswith("sudo /usr/bin/bn-backup-agent ctl setup")
     rec = load_host(env.paths, "galactica")
@@ -332,7 +332,7 @@ def test_add_host_keeps_comments_and_rolls_back(tmp_path: Path) -> None:
     cfg = tmp_path / "config.yml"
     original = (
         "# my backup\nversion: 2\nserver:\n  backup_directory: /Volumes/Backup/b  # drive\n"
-        "  ssh_host: macmini.home.lan\n  receive_user: ariel\nhosts:\n"
+        "  ssh_host: server.home.lan\n  receive_user: ariel\nhosts:\n"
         "  galactica:  # the studio Mac\n    address: galactica.home.lan\n    admin_user: ariel\n"
         "modules:\n  photos: {host: galactica, user: ariel, src_path: /Volumes/Photos/P}\n"
     )

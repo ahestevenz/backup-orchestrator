@@ -516,7 +516,7 @@ def migrate(text: str, current_user: str) -> tuple[str, list[str]]:
         "",
         "server:",
         f"  backup_directory: {yaml_scalar(str(settings['backup_directory']))}",
-        f"  ssh_host: CHANGE-ME{todo}: the Mac mini's name as hosts see it",
+        f"  ssh_host: CHANGE-ME{todo}: the server's name as hosts see it",
         "  ssh_port: 22",
         f"  receive_user: {yaml_scalar(current_user)}{todo}",
         "",
@@ -564,7 +564,7 @@ version: 2
 
 server:
   backup_directory: /Volumes/Backup/bn-backup   # on the APFS (Case-sensitive) drive
-  ssh_host: macmini.home.lan                    # how hosts reach this server
+  ssh_host: server.home.lan                    # how hosts reach this server
   ssh_port: 22
   receive_user: {user}                          # your account on this server
 

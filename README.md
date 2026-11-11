@@ -1,7 +1,7 @@
 # bleiben Backup Orchestrator
 
-**Local backups for photographers and home studios.** One Mac mini with an
-external drive keeps a copy of the photo archives, catalogs and documents of
+**Local backups for photographers and home studios.** One always-on computer
+at home, the server, with an external drive keeps a copy of the photo archives, catalogs and documents of
 every Mac and Linux computer at home, and tells you plainly when something
 needs attention.
 
@@ -19,10 +19,10 @@ years of shoots that cannot be taken again.
 
 ## How it works
 
-The **server** (`bn-backup`, a Python program) runs on a Mac mini that is
-always on, with an external APFS drive. Every computer being backed up runs a
+The **server** (`bn-backup`, a Python program) runs on a computer that is
+always on (a Mac or a Debian-based Linux machine), with an external drive. Every computer being backed up runs a
 small **agent** (`bn-backup-agent`), which reads each person's files *as that
-person* and sends them to the Mac mini. That is why macOS privacy protection
+person* and sends them to the server. That is why macOS privacy protection
 no longer gets in the way: the agent holds Full Disk Access, which you grant
 once on each Mac.
 
@@ -36,8 +36,9 @@ The full design, with the reasoning behind every choice, is in
 
 ## What you need
 
-- A **Mac mini** (or a Debian-based Linux server) that stays on, with an
-  **external drive formatted APFS (Case-sensitive)** for the backup.
+- A **server**: a Mac (macOS 13 or later) or a Debian-based Linux computer that
+  stays on, with an **external drive** for the backup, formatted
+  **APFS (Case-sensitive)** on a Mac, or **Btrfs** or **XFS** on Linux.
 - Macs with macOS 13 or later, and Debian-based Linux computers.
 - A home network where the computers can reach each other by name
   (`galactica.home.lan`, `galactica.local`) or IP address.
@@ -45,7 +46,11 @@ The full design, with the reasoning behind every choice, is in
 
 ## Install
 
-### 1. The Mac mini
+### 1. The server
+
+These steps are for a Mac server. On a Debian-based Linux server, format the
+backup drive as Btrfs or XFS, run `sudo apt install rsync openssh-server`,
+install [uv](https://docs.astral.sh/uv/), then continue at step 4.
 
 1. Format the backup drive as **APFS (Case-sensitive)**. In Finder → Get Info,
    make sure *Ignore ownership on this volume* is **off**.
@@ -88,8 +93,8 @@ version: 2
 
 server:
   backup_directory: /Volumes/Backup/bn-backup
-  ssh_host: macmini.home.lan        # how the computers reach the Mac mini
-  receive_user: ariel               # your account on the Mac mini
+  ssh_host: server.home.lan        # how the computers reach the server
+  receive_user: ariel               # your account on the server
 
 settings:
   mode: snapshot                    # keep earlier versions (recommended)
@@ -183,7 +188,7 @@ tells you where.
 
 ## Restoring files
 
-Open the backup drive in Finder on the Mac mini: the last complete backup is
+Open the backup drive on the server (in Finder on a Mac): the last complete backup is
 in `current/<module>/`, earlier versions are in `snapshots/<date>/<module>/`
 (snapshot mode), and modules you stopped backing up are in `removed/`. Copy
 what you need back to its computer. The files' original owners and
@@ -195,12 +200,12 @@ command can put them back exactly.
 | Reason | What to do |
 | --- | --- |
 | `tcc` | Switch on BNBackupAgent in Full Disk Access on that Mac |
-| `server_denied` | On the Mac mini, turn on *Allow full disk access for remote users* (Remote Login → ⓘ), and check the drive is not read-only |
+| `server_denied` | On a Mac server, turn on *Allow full disk access for remote users* (Remote Login → ⓘ), and check the drive is not read-only |
 | `drive_missing` | Connect the external drive named in the message, then run again |
 | `source_empty` | The folder is empty but its backup is not. Connect the drive that belongs there; if you emptied it on purpose, remove the module from the config |
 | `missing` | The folder does not exist; check `src_path` in the config |
 | `permission` | That person cannot read some files; fix their ownership or exclude them |
-| `network` | That computer could not reach the Mac mini; check the network and the names |
+| `network` | That computer could not reach the server; check the network and the names |
 | `stalled` | No progress for 10 minutes; check the network or a sleeping drive |
 | unreachable | The computer is asleep or off. Wake-on-LAN is tried automatically; computers that are shut down usually cannot be woken |
 | `hosts configure` | A new person in the config: run `bn-backup hosts configure HOST` |

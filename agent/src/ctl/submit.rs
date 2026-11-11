@@ -91,7 +91,7 @@ mod tests {
             accept(&l, "sofia", &mut &big[..]).unwrap_err().code,
             "bad_job"
         );
-        let evil = JOB.replace("macmini.home.lan", "evil.example.com");
+        let evil = JOB.replace("server.home.lan", "evil.example.com");
         assert_eq!(
             accept(&l, "sofia", &mut evil.as_bytes()).unwrap_err().code,
             "server_mismatch"

@@ -372,7 +372,7 @@ mod tests {
     fn target() -> Target {
         Target {
             user: "ariel".into(),
-            host: "macmini.home.lan".into(),
+            host: "server.home.lan".into(),
             port: 22,
             key: "/Library/Application Support/BNBackupAgent/users/sofia/state/id_ed25519".into(),
             known_hosts: "/Library/Application Support/BNBackupAgent/server_known_hosts".into(),
@@ -419,7 +419,7 @@ mod tests {
         assert!(!a.iter().any(|x| x == "--inplace" || x == "--append"));
         // No trailing slash on the source: the folder itself lands in the module.
         assert_eq!(a[a.len() - 2], "/Users/sofia/Documents");
-        assert_eq!(a[a.len() - 1], "ariel@macmini.home.lan:sofia-documents/");
+        assert_eq!(a[a.len() - 1], "ariel@server.home.lan:sofia-documents/");
     }
 
     #[test]
@@ -467,7 +467,7 @@ mod tests {
             &["/etc/hosts".into(), "/etc/motd".into()],
         );
         assert!(!a.contains(&"--delete".to_string()));
-        assert_eq!(a[a.len() - 1], "ariel@macmini.home.lan:sofia-athena/");
+        assert_eq!(a[a.len() - 1], "ariel@server.home.lan:sofia-athena/");
         let d = dotfiles_args(
             &t,
             &opts(),
@@ -491,7 +491,7 @@ mod tests {
             ]
         );
         assert_eq!(d[d.len() - 2], "/Users/sofia/");
-        assert_eq!(d[d.len() - 1], "ariel@macmini.home.lan:sofia-athena/sofia/");
+        assert_eq!(d[d.len() - 1], "ariel@server.home.lan:sofia-athena/sofia/");
     }
 
     #[test]

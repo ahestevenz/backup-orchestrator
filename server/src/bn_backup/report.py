@@ -58,7 +58,7 @@ def hint(name: str, m: ModuleState, io_timeout_seconds: int) -> str:
             "on the server"
         ),
         "server_denied": (
-            "The server refused to write to the backup drive. On the Mac mini: System Settings "
+            "The server refused to write to the backup drive. On a Mac server: System Settings "
             "→ General → Sharing → Remote Login → ⓘ → turn on 'Allow full disk access for remote "
             "users', and check the drive is not read-only"
         ),

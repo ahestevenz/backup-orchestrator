@@ -192,7 +192,7 @@ mod tests {
     #[test]
     fn agent_config_round_trip() {
         let c = AgentConfig {
-            server_host: "macmini.home.lan".into(),
+            server_host: "server.home.lan".into(),
             server_port: 22,
             server_user: "ariel".into(),
             admin_user: "ariel".into(),
