@@ -141,7 +141,8 @@ def volume_write_test(state_dir: Path) -> str | None:
                 f.unlink()
 
 
-def server_checks(env: Env, *, write_test: bool) -> ServerReport:
+def server_checks(env: Env, *, write_test: bool, own_lock: bool = False) -> ServerReport:
+    """`own_lock`: the caller (a run) holds the run lock itself."""
     cfg = env.cfg
     paths = env.paths
     checks: list[Check] = [Check("config", True, str(env.loaded.path))]
@@ -242,7 +243,7 @@ def server_checks(env: Env, *, write_test: bool) -> ServerReport:
             "a promotion was interrupted; bn-backup run finishes it" if interrupted else "",
         )
     )
-    holder = lock_holder(env.operator_paths.lock)
+    holder = None if own_lock else lock_holder(env.operator_paths.lock)
     checks.append(
         Check(
             "lock",

@@ -47,12 +47,19 @@ class FakeHost:
     server_reachable: bool = True
     server_error_kind: str | None = None
     macs: list[str] = field(default_factory=lambda: ["aa:bb:cc:dd:ee:01"])
-    # module name -> (error_kind, message) for probe and backup failures
+    # module name -> (error_kind, message): backup failures, and probe failures
     module_errors: dict[str, tuple[str, str]] = field(default_factory=dict)
+    probe_errors: dict[str, tuple[str, str]] = field(default_factory=dict)
     # called with (user, job) when a backup job starts; may write into staging
     on_backup: Callable[[str, dict[str, Any]], dict[str, Any] | None] | None = None
+    # Backup jobs only (probes always answer at once):
     # when set, start() leaves the job "running" with no result (a crash)
     hang: bool = False
+    hang_probes: bool = False  # probes that never report
+    # a job that reports "running" for this many result polls before it is done
+    slow_polls: int = 0
+    # called on every result poll (tests use it to pull drives or send signals)
+    on_poll: Callable[[], None] | None = None
     jobs: list[dict[str, Any]] = field(default_factory=list)
     results: dict[str, dict[str, Any]] = field(default_factory=dict)
     calls: list[str] = field(default_factory=list)
@@ -114,13 +121,26 @@ class FakeAgent:
         self.h.calls.append(f"start {user}")
         self._need()
         job = self.h.jobs[-1]
+        self._kind = job["kind"]
+        if job["kind"] == "probe":
+            if self.h.hang_probes:
+                self.h.results[user] = {"job_id": job["job_id"], "state": "running"}
+            else:
+                self.h.results[user] = self._run(user, job)
+            return
         if self.h.hang:
+            self.h.results[user] = {"job_id": job["job_id"], "state": "running"}
+            return
+        if self.h.slow_polls:
+            self.h.running.add(user)
+            self._polls_left = self.h.slow_polls
+            self._pending = (user, job)
             self.h.results[user] = {"job_id": job["job_id"], "state": "running"}
             return
         self.h.results[user] = self._run(user, job)
 
-    def _module(self, name: str) -> dict[str, Any]:
-        err = self.h.module_errors.get(name)
+    def _module(self, name: str, probe: bool) -> dict[str, Any]:
+        err = (self.h.probe_errors if probe else self.h.module_errors).get(name)
         return {
             "name": name,
             "status": "failed" if err else "ok",
@@ -149,7 +169,7 @@ class FakeAgent:
             "server_error": None,
             "server_error_kind": None,
             "notes": [],
-            "modules": [self._module(m["name"]) for m in job["modules"]],
+            "modules": [self._module(m["name"], job["kind"] == "probe") for m in job["modules"]],
         }
         if job["kind"] == "probe":
             result["server_reachable"] = self.h.server_reachable
@@ -167,9 +187,19 @@ class FakeAgent:
         self._need()
         if user not in self.h.stuck:
             self.h.running.discard(user)
+            self._pending = None
 
     def result(self, user: str) -> dict[str, Any] | None:
         self._need()
+        if self.h.on_poll is not None and getattr(self, "_kind", None) == "backup":
+            self.h.on_poll()
+        pending = getattr(self, "_pending", None)
+        if pending is not None and pending[0] == user and user in self.h.running:
+            self._polls_left -= 1
+            if self._polls_left <= 0:
+                self.h.running.discard(user)
+                self.h.results[user] = self._run(*pending)
+                self._pending = None
         return self.h.results.get(user)
 
     def log(self, user: str, module: str) -> list[str]:
@@ -187,7 +217,9 @@ class FakeFleet:
         self.woken: list[str] = []
 
     def agent(self, target: HostTarget) -> FakeAgent:
-        return FakeAgent(self.hosts[target.name])
+        if not hasattr(self, "_agents"):
+            self._agents: dict[str, FakeAgent] = {}
+        return self._agents.setdefault(target.name, FakeAgent(self.hosts[target.name]))
 
     def by_address(self, address: str) -> FakeHost:
         return next(h for h in self.hosts.values() if address.startswith(h.name))
@@ -314,3 +346,33 @@ def standard_fleet(**overrides: Any) -> FakeFleet:
         FakeHost("galactica", **overrides),
         FakeHost("athena", **overrides),
     )
+
+
+class FakeNotifier:
+    def __init__(self, fail: bool = False) -> None:
+        self.sent: list[tuple[str, str]] = []
+        self.fail = fail
+
+    def send(self, subject: str, body: str) -> list[str]:
+        self.sent.append((subject, body))
+        return ["email: SMTP refused"] if self.fail else []
+
+
+def pushing(paths: Any, content: str = "v1") -> Callable[[str, dict[str, Any]], None]:
+    """An on_backup hook that writes into staging the way rsync would."""
+
+    def push(user: str, job: dict[str, Any]) -> None:
+        if job["options"]["dry_run"] or not paths.root.exists():
+            return  # a push to a missing drive writes nothing
+        for m in job["modules"]:
+            base = paths.staging_module(job["host_name"], user, m["name"])
+            if m["type"] == "path":
+                folder = base / m["src_path"].rstrip("/").rsplit("/", 1)[-1]
+                folder.mkdir(parents=True, exist_ok=True)
+                (folder / "photo.NEF").write_text(f"{content} {job['run_id']}")
+            else:
+                (base / user).mkdir(parents=True, exist_ok=True)
+                (base / "hosts").write_text("127.0.0.1 localhost")
+                (base / user / ".zshrc").write_text("export X=1")
+
+    return push

@@ -141,7 +141,7 @@ def test_expect_nonempty_follows_current(tmp_path: Path) -> None:
         ({"running": {"sofia"}}, "idle", "still running"),
         ({"fda": "denied"}, "probe", "Full Disk Access on athena"),
         (
-            {"module_errors": {"sofia-documents": ("drive_missing", "PhotoArchive")}},
+            {"probe_errors": {"sofia-documents": ("drive_missing", "PhotoArchive")}},
             "probe",
             "drive_missing",
         ),
@@ -203,7 +203,7 @@ def test_gate_stops_leftover_job(tmp_path: Path) -> None:
 
 
 def test_probe_that_never_reports_is_red(tmp_path: Path) -> None:
-    fleet = FakeFleet(FakeHost("galactica"), FakeHost("athena", hang=True))
+    fleet = FakeFleet(FakeHost("galactica"), FakeHost("athena", hang_probes=True))
     env = make_env(tmp_path, fleet)
     rows = evaluate_rows(env, [("athena", "sofia")], wake=False, gate=False)
     assert "stopped without reporting" in rows[0].reason

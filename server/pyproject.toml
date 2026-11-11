@@ -52,7 +52,10 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
-ignore = ["RUF001", "RUF002", "RUF003"]  # en dashes and arrows in user-facing text are intended
+ignore = [
+    "E501",  # line length is the formatter's job; long user-facing strings stay whole
+    "RUF001", "RUF002", "RUF003",  # en dashes and arrows in user-facing text are intended
+]
 
 [tool.mypy]
 strict = true
